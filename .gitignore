@@ -1,2 +1,5 @@
 # temp files
 .DS_Store
+
+# keep projects local
+projects/

@@ -6,22 +6,21 @@ This document provides high-level context for AI agents working in this particul
 
 ```
 .claude
-├── agents
-│   └── software-architect.md
+├── agents/
 ├── CLAUDE.md
-├── hooks
-├── plans
-├── project
+├── hooks/
+├── plans/
+├── project/
 │   ├── ARCHITECTURE.md
 │   ├── CAPABILITIES.md
 │   ├── CHANGELOG.md
 │   ├── MEMORY.md
 │   ├── TESTING.md
 │   └── TODO.md
-├── rules
+├── rules/
 │   ├── REPOSITORY.md
 │   └── WORKFLOW.md
-└── skills
+└── skills/
 ```
 
 ## Where to find information

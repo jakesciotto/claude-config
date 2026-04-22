@@ -7,7 +7,7 @@
   burning up tens of thousands of tokens looking at every file in the directory
 - If something goes sideways, STOP and re-plan immediately - don't keep pushing
 - Use plan mode for verification steps, not just building
-- Write detailed specs in `.claude/plans` upfront to reduce ambiguity
+- Write detailed specs in `.claude/plans/` upfront to reduce ambiguity
 
 ### 2. Subagent Strategy
 

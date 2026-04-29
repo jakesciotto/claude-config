@@ -13,3 +13,7 @@
 
 ## Ambiguity
 - When something is unclear, ask before proceeding. Do not guess.
+
+## Task Pacing
+- If a task takes longer than 30 seconds, pause and evaluate whether still on track. Long tasks are the exception.
+- Don't expend energy/tokens unnecessarily. If goal lacks clarity, ask upfront before spinning on tools.

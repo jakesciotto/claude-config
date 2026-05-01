@@ -25,7 +25,7 @@
 
 ### 4. Verification Before Done
 
-- Never mark a task complete without proving it works
+- Never mark a task complete without proving it works 
 - Diff behavior between main and your changes when relevant
 - Ask yourself: "Would a principal engineer approve this?"
 - Run tests, check logs, demonstrate correctness

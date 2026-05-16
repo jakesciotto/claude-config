@@ -1,82 +1,107 @@
 {
-    "alwaysThinkingEnabled": true,
-    "env":
-    {
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-5",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
-        "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
-        "DISABLE_TELEMETRY": "1",
-        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
-    },
-    
-    "permissions":
-    {
-        "deny":
-        [
-            "Bash(rm -rf:*)",
-            "Bash(rm -fr:*)"
-        ],
-        "ask":
-        [
-            "Bash(sudo:*)",
-            "Bash(chmod 777:*)",
-            "Bash(git push --force:*)",
-            "Bash(git push -f:*)",
-            "Bash(git reset --hard:*)",
-            "Bash(git clean -fd:*)",
-            "Bash(npm publish:*)",
-            "Bash(eval:*)",
-            "Read(.env)",
-            "Read(.env.*)",
-            "Read(**/.env)",
-            "Read(**/.env.*)",
-            "Read(~/.ssh/**)",
-            "Read(~/.aws/**)",
-            "Read(**/*credential*)",
-            "Read(**/*secret*)",
-            "Read(**/*.pem)",
-            "Read(**/*.key)",
-            "Edit(*)",
-            "Write(*)",
-            "Glob(*)",
-            "Grep(*)",
-            "WebFetch(*)",
-            "WebSearch(*)",
-            "TodoWrite(*)",
-            "NotebookEdit(*)",
-            "Agent(*)",
-            "Skill(*)",
-            "TaskOutput(*)",
-            "TaskStop(*)"
+  "alwaysThinkingEnabled": true,
+  "awaySummaryEnabled": false,
+  "preferredNotifChannel": "notifications_disabled",
+  "env": {
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-5",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
+    "DISABLE_TELEMETRY": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_DISABLE_1M_CONTEXT": "0"
+  },
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)"
+    ],
+    "allow": [
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)",
+      "NotebookEdit(*)",
+      "mcp__plugin_posthog_posthog__execute-sql",
+      "mcp__plugin_posthog_posthog__query-run",
+      "mcp__plugin_posthog_posthog__docs-search",
+      "mcp__plugin_posthog_posthog__exec",
+      "mcp__vitally__search_accounts",
+      "mcp__vitally__health_check",
+      "mcp__vitally__find_account_by_name"
+    ],
+    "ask": [
+      "Bash(sudo:*)",
+      "Bash(chmod 777:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(npm publish:*)",
+      "Bash(eval:*)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(**/*credential*)",
+      "Read(**/*secret*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Glob(*)",
+      "Grep(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "TodoWrite(*)",
+      "Agent(*)",
+      "Skill(*)",
+      "TaskOutput(*)",
+      "TaskStop(*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/auto-trust-folder.sh"
+          }
         ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": false,
+    "claude-code-setup@claude-plugins-official": false,
+    "posthog@claude-plugins-official": true,
+    "caveman@caveman": true,
+    "todoist@doist": true
+  },
+  "extraKnownMarketplaces": {
+    "PostHog-skills": {
+      "source": {
+        "source": "github",
+        "repo": "PostHog/skills"
+      }
     },
-    "enabledPlugins":
-    {
-        "frontend-design@claude-plugins-official": true,
-        "superpowers@claude-plugins-official": true,
-        "code-review@claude-plugins-official": true,
-        "code-simplifier@claude-plugins-official": true,
-        "feature-dev@claude-plugins-official": true,
-        "claude-md-management@claude-plugins-official": true,
-        "skill-creator@claude-plugins-official": true,
-        "claude-code-setup@claude-plugins-official": true,
-        "posthog@claude-plugins-official": true,
-        "caveman@caveman": true
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
     },
-    "hooks":
-    {
-        "PreToolUse":
-        [
-            {
-                "matcher": "",
-                "hooks":
-                [
-                    {
-                        "type": "command",
-                        "command": "bash ~/.claude/hooks/auto-trust-folder.sh"
-                    }
-                ]
-            }
-        ]
+    "doist": {
+      "source": {
+        "source": "github",
+        "repo": "doist/todoist-mcp"
+      }
     }
+  }
 }

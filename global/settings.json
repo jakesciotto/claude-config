@@ -1,20 +1,11 @@
 {
-  "alwaysThinkingEnabled": true,
-  "awaySummaryEnabled": false,
-  "preferredNotifChannel": "notifications_disabled",
   "env": {
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-5",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
-    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8",
     "DISABLE_TELEMETRY": "1",
-    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "CLAUDE_CODE_DISABLE_1M_CONTEXT": "0"
   },
   "permissions": {
-    "deny": [
-      "Bash(rm -rf:*)",
-      "Bash(rm -fr:*)"
-    ],
     "allow": [
       "Read(*)",
       "Edit(*)",
@@ -27,6 +18,10 @@
       "mcp__vitally__search_accounts",
       "mcp__vitally__health_check",
       "mcp__vitally__find_account_by_name"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)"
     ],
     "ask": [
       "Bash(sudo:*)",
@@ -49,7 +44,6 @@
       "Read(**/*.key)",
       "Glob(*)",
       "Grep(*)",
-      "WebFetch(*)",
       "WebSearch(*)",
       "TodoWrite(*)",
       "Agent(*)",
@@ -80,7 +74,7 @@
     "claude-md-management@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
     "claude-code-setup@claude-plugins-official": false,
-    "posthog@claude-plugins-official": true,
+    "posthog@claude-plugins-official": false,
     "caveman@caveman": true,
     "todoist@doist": true
   },
@@ -103,5 +97,7 @@
         "repo": "doist/todoist-mcp"
       }
     }
-  }
+  },
+  "awaySummaryEnabled": false,
+  "preferredNotifChannel": "notifications_disabled"
 }

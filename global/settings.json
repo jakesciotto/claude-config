@@ -11,10 +11,7 @@
       "Edit(*)",
       "Write(*)",
       "NotebookEdit(*)",
-      "mcp__plugin_posthog_posthog__execute-sql",
-      "mcp__plugin_posthog_posthog__query-run",
-      "mcp__plugin_posthog_posthog__docs-search",
-      "mcp__plugin_posthog_posthog__exec",
+      "mcp__claude_ai_PostHog__exec",
       "mcp__vitally__search_accounts",
       "mcp__vitally__health_check",
       "mcp__vitally__find_account_by_name"
@@ -76,7 +73,8 @@
     "claude-code-setup@claude-plugins-official": false,
     "posthog@claude-plugins-official": false,
     "caveman@caveman": true,
-    "todoist@doist": true
+    "todoist@doist": true,
+    "supabase@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "PostHog-skills": {

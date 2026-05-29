@@ -74,15 +74,20 @@ State map:
 - `[-]` → cancelled
 - `[?]` → waiting
 - `[!]` → important
+- `[*]` → star
 
 ### Step 3: Determine Todoist target per checkbox
 
 **For Daily Note files:**
 - Parse inline tag `[<Tag>]` at start of content. Look up in todoist_index → target project.
+  - Inbox triage section uses a trailing `→ suggest: [<Tag>]` annotation instead of a leading tag — treat that as the routing tag.
 - If no tag:
-  - Section header context: `## Quick capture` or `## Inbox triage` → Todoist Inbox
+  - Section header context: `## Quick capture*` or `## Inbox triage` → Todoist Inbox
   - Else → Todoist Inbox (default)
 - Inline `[<Tag>]` stripped from content before storing as task content.
+- **Dedupe by ID:** the same Todoist ID may appear in multiple sections (Focus + triage + per-stream). Collapse to one task; act once. Obsidian state precedence: done > cancelled > in-progress > open.
+- **Auto-move tagged Inbox items:** if a linked task's Todoist `projectId` is Inbox but its note tag maps to a real project, stage `project-move` (via `update-tasks` with `projectId`/`sectionId`) to that project. Query Inbox once with `find-tasks({projectId: inbox})` rather than fetching each ID.
+- **Deadline/due reconcile:** if a note line's date annotation (`(deadline YYYY-MM-DD)` / `(due …)`) differs from Todoist, stage a `reschedule`/`deadline` update.
 
 **For project/area files:**
 - `target_project` from path mapping.
@@ -119,8 +124,13 @@ Else (no id):
 | cancelled `[-]` | open | stage `delete` |
 | waiting `[?]` | open, no `waiting` label | stage `add-label: waiting` |
 | important `[!]` | priority p4 | stage `set-priority: p1` |
+| star `[*]` | no `star` label | stage `add-label: star` |
 | no id + open | n/a | stage `create` in target project/section |
 | content edited | mismatch w/ Todoist | stage `update-content` |
+| any linked | in Todoist Inbox, tag maps to real project | stage `project-move` to mapped project/section |
+| any linked | date annotation ≠ Todoist date | stage `reschedule` (due) / `deadline` update |
+
+Note `project-move` uses `update-tasks` with `projectId` — the `project-move` tool only moves projects between workspace/personal, not tasks.
 
 Mark `gone` (id 404) as: `> [!warning] Task gone in Todoist` annotation on the Obsidian line (no Todoist write).
 

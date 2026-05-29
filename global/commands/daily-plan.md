@@ -27,7 +27,7 @@ Jake's PARA system:
 
 5. **Project READMEs** — `mcp__obsidian__list_directory({"path": "Projects"})`, then for each dir read `Projects/<name>/README.md`. Capture frontmatter.
 
-6. **Yesterday's Daily Note** — `mcp__obsidian__read_note({"path": "Daily Notes/<yesterday>.md"})`. If exists, parse unchecked items (`- [ ]`, `- [/]`, `- [?]`) for roll-forward.
+6. **Yesterday's Daily Note** — `mcp__obsidian__read_note({"path": "Daily Notes/<YYYY-MM>/<yesterday>.md"})` where `<YYYY-MM>` = yesterday's month folder (mind month rollover). If exists, parse unchecked items (`- [ ]`, `- [/]`, `- [?]`) for roll-forward.
 
 7. **Build projectId → canonical tag map** — `mcp__todoist__find-projects({"limit": 100})`. Build lookup: `projectId → "[<Leaf Name>]"` per [[todoist-mapping]] canonical inline tag rule (leaf project/area name only, e.g. `[Easton Plus]`, `[Marriage]`, `[AskElephant]`).
 
@@ -37,7 +37,7 @@ Jake's PARA system:
 
 - **Per-stream sections** — group by stream. Each line: `- [ ] [<tag>] <content> <!-- todoist:<id> --> [optional: deadline marker]`.
 
-- **Inbox triage** — for stale items, propose a target project tag. Format: `- [ ] <content> <!-- todoist:<id> --> → suggest: [<tag>]`.
+- **Inbox triage** — for stale items, propose a target project tag using the **proposed state** `[>]` (agent suggestion, awaiting affirm). Format: `- [>] <content> <!-- todoist:<id> --> → [<tag>]`. User affirms by flipping `[>]`→`[ ]` (then /sync moves it) or rejects with `[-]`.
 
 - **Blocked/waiting** — collect tasks with label `waiting` + Project READMEs where `blocked_by` non-null. Use `- [?]` state.
 
@@ -70,7 +70,7 @@ Renders invisibly in Obsidian preview. Enables `/sync` to match unambiguously.
 
 ## Output
 
-Write `Daily Notes/<date>.md`. If file exists, back up to `Daily Notes/<date>.bak.md` via `mcp__obsidian__move_note` first.
+Write `Daily Notes/<YYYY-MM>/<date>.md` (month folder = first 7 chars of `<date>`; create it if absent). If file exists, back up to `Daily Notes/<YYYY-MM>/<date>.bak.md` via `mcp__obsidian__move_note` first.
 
 Skeleton:
 
@@ -104,7 +104,7 @@ tags:
 - [ ] [<tag>] <task> <!-- todoist:ID -->
 
 ## Inbox triage (Todoist Inbox > 24h)
-- [ ] <task> <!-- todoist:ID --> → suggest: [<tag>]
+- [>] <task> <!-- todoist:ID --> → [<tag>]
 
 ## Quick capture
 <rolled-forward items with preserved ID comments + empty for user>
@@ -113,10 +113,14 @@ tags:
 - [?] [<tag>] <task> <!-- todoist:ID -->
 ```
 
+## Log run to Supabase
+
+After writing the Daily Note, log one `command_runs` row (`_shared/supabase-logging.md`): `command='daily-plan'`, `scope=<date>`, `status='applied'`, `applied_at=now()`. Counts = `{focus, next_actions, inbox_triage, rolled_forward}`; `applied_ops` = the planned sections summary. No proposal gate here (daily-plan writes directly), so a single applied row. Non-blocking — warn and continue if Supabase unauthed/unreachable.
+
 ## Behavior
 
 - READ-ONLY on Todoist. No completes, no label changes.
-- Write to `Daily Notes/<date>.md` (+ backup).
+- Write to `Daily Notes/<YYYY-MM>/<date>.md` (+ backup in same month folder).
 - Calendar MCP unavailable → `> [!warning] Calendar unavailable` callout, skip Calendar section.
 - Todoist MCP unavailable → same warning, still emit Project READMEs Per-stream section.
 - After writing, print summary: `Daily plan written: N focus, M next-actions, K inbox triage, J rolled forward.`

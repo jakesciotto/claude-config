@@ -16,7 +16,7 @@ PARA reference:
 
 2. **All Area sub-files** — read `Areas/Home/*.md`, `Areas/Personal/*.md`, `Areas/Work/*.md` (excluding `Customers/`). Capture: stale `last_touched`.
 
-3. **Last 7 Daily Notes** — for each of past 7 days, read `Daily Notes/<date>.md` if exists. Parse `End-of-day reconcile` sections + checked items.
+3. **Last 7 Daily Notes** — for each of past 7 days, read `Daily Notes/<YYYY-MM>/<date>.md` if exists (compute each day's month folder; window may span two folders near a month boundary). Parse `End-of-day reconcile` sections + checked items.
 
 4. **Todoist completed this week** — `mcp__todoist__find-completed-tasks` since 7 days ago. Group by projectId.
 
@@ -33,7 +33,7 @@ PARA reference:
 
 ## Output — Part 1: Write weekly review note
 
-Write to `Daily Notes/<date>-weekly-review.md`:
+Write to `Daily Notes/<YYYY-MM>/<date>-weekly-review.md` (month folder of `<date>`):
 
 ```markdown
 ---
@@ -87,6 +87,15 @@ Stop. For any Project with `status: done`, show in conversation:
 If `y`: for each, use `mcp__obsidian__move_note` to relocate `Projects/<name>/README.md` → `Archives/projects/<YYYY-MM-DD>-<name>/README.md`. Also move any sub-files in the project folder.
 
 If `N`: skip moves, exit cleanly.
+
+## Log run to Supabase
+
+Per `_shared/supabase-logging.md`, `command='weekly-review'`, `scope=<week start date>`:
+- After writing the review note + showing proposed archive moves (Part 2): insert `status='proposed'` row with `proposed_counts` (stale items, archive candidates) + `proposed_ops`. Keep `id`.
+- On `y`: update → `status='applied'`, `applied_at=now()`, fill `applied_*` with moved projects.
+- On `N`: update → `status='vetoed'` (review note still written; record that in `notes`).
+
+Non-blocking.
 
 ## Behavior
 

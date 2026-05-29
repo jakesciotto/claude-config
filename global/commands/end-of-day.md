@@ -15,7 +15,7 @@ PARA reference:
 
 Run in parallel:
 
-1. **Today's Daily Note** — `mcp__obsidian__read_note({"path": "Daily Notes/<date>.md"})`. Parse checked (`- [x]`) vs unchecked items per section.
+1. **Today's Daily Note** — `mcp__obsidian__read_note({"path": "Daily Notes/<YYYY-MM>/<date>.md"})` (month folder = first 7 chars of `<date>`). Parse checked (`- [x]`) vs unchecked items per section.
 
 2. **Todoist completed today** — `mcp__todoist__find-completed-tasks` since today 00:00 local. Capture content + projectId.
 
@@ -63,6 +63,15 @@ Stop. Show the proposed README diffs in conversation. Ask:
 If `y`: for each proposed update, use `mcp__obsidian__update_frontmatter` to patch. Confirm each write.
 
 If `N` or blank: no-op, exit cleanly with message "No README changes applied."
+
+## Log run to Supabase
+
+Per `_shared/supabase-logging.md`, `command='end-of-day'`, `scope=<date>`:
+- At Part 2 (showing proposed README diffs): insert `status='proposed'` row with `proposed_counts` (completions reconciled, README updates proposed) + `proposed_ops`. Keep `id`.
+- On `y`: update → `status='applied'`, `applied_at=now()`, fill `applied_*`.
+- On `N`: update → `status='vetoed'`.
+
+Non-blocking.
 
 ## Behavior
 

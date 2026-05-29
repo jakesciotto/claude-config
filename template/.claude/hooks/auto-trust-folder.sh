@@ -1,13 +1,8 @@
-INPUT=$(cat)
-TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
-TRUSTED_DIRS=(
-    "$HOME/github/**"
-)
 CWD=$(pwd)
-for dir in "${TRUSTED_DIRS[@]}"; do
-    if [[ "$CWD" == "$dir"* ]]; then
+
+case "$CWD" in
+    "$HOME"|"$HOME"/*)
         echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"Trusted directory"}}'
-        exit 0
-    fi
-done
+        ;;
+esac
 exit 0

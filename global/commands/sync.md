@@ -15,8 +15,8 @@ Todoist: `mcp__todoist__*`.
 
 | `$1` | Files scanned |
 |---|---|
-| `today` (default) | `Daily Notes/<today>.md`, all `Projects/**/README.md`, all `Areas/**/*.md` (excluding `Templates/`, `Resources/`, `Archives/`, `Meeting Notes/`, `Areas/Work/Scratch/`) |
-| `all` | Same as `today` + last 7 Daily Notes |
+| `today` (default) | `Daily Notes/<YYYY-MM>/<today>.md` (month folder = first 7 chars of date), all `Projects/**/README.md`, all `Areas/**/*.md` (excluding `Templates/`, `Resources/`, `Archives/`, `Meeting Notes/`, `Areas/Work/Scratch/`) |
+| `all` | Same as `today` + last 7 Daily Notes (search `Daily Notes/<YYYY-MM>/` folders; may span two month folders near a boundary) |
 | `<explicit path>` | Just that file |
 
 ## Build mapping table at runtime
@@ -75,18 +75,23 @@ State map:
 - `[?]` → waiting
 - `[!]` → important
 - `[*]` → star
+- `[>]` → proposed (agent-suggested categorization/move, awaiting user affirmation)
 
 ### Step 3: Determine Todoist target per checkbox
 
 **For Daily Note files:**
 - Parse inline tag `[<Tag>]` at start of content. Look up in todoist_index → target project.
-  - Inbox triage section uses a trailing `→ suggest: [<Tag>]` annotation instead of a leading tag — treat that as the routing tag.
+  - Inbox triage section uses a trailing `→ [<Tag>]` annotation as the routing tag. The checkbox state gates whether the agent acts on it (see affirmation flow below).
 - If no tag:
   - Section header context: `## Quick capture*` or `## Inbox triage` → Todoist Inbox
   - Else → Todoist Inbox (default)
 - Inline `[<Tag>]` stripped from content before storing as task content.
 - **Dedupe by ID:** the same Todoist ID may appear in multiple sections (Focus + triage + per-stream). Collapse to one task; act once. Obsidian state precedence: done > cancelled > in-progress > open.
-- **Auto-move tagged Inbox items:** if a linked task's Todoist `projectId` is Inbox but its note tag maps to a real project, stage `project-move` (via `update-tasks` with `projectId`/`sectionId`) to that project. Query Inbox once with `find-tasks({projectId: inbox})` rather than fetching each ID.
+- **Proposal → affirmation flow (`[>]`):** the agent writes a suggested categorization/move as a `[>]` checkbox with the routing tag. `[>]` is a PROPOSAL — never write it to Todoist. Surface all `[>]` lines under a "Suggested (awaiting affirm)" bucket in the proposal.
+  - **Affirm:** user flips `[>]` → `[ ]`. Now eligible to move (see below).
+  - **Reject:** user flips `[>]` → `[-]` → leave in Inbox, no move; log `affirmed:false`.
+  - Same-run: act on whatever state the note holds when /sync runs — `[ ]` (affirmed) lines move now; `[>]` stay held.
+- **Auto-move affirmed tagged Inbox items:** for an **open `[ ]`** linked task whose Todoist `projectId` is Inbox and whose note tag maps to a real project, stage `project-move` (via `update-tasks` with `projectId`/`sectionId`). On apply, rewrite the note annotation `→ [<Tag>]` to `→ moved: [<Tag>]` and log the op with `suggested:true, affirmed:true`. Query Inbox once with `find-tasks({projectId: inbox})` rather than fetching each ID. `[>]` lines are NOT moved.
 - **Deadline/due reconcile:** if a note line's date annotation (`(deadline YYYY-MM-DD)` / `(due …)`) differs from Todoist, stage a `reschedule`/`deadline` update.
 
 **For project/area files:**
@@ -140,7 +145,7 @@ Build a list of operations:
 
 ```
 [
-  { type: "complete", id: "6...", content: "...", file: "Daily Notes/2026-05-16.md", line: 12 },
+  { type: "complete", id: "6...", content: "...", file: "Daily Notes/2026-05/2026-05-16.md", line: 12 },
   { type: "create", target: "Projects > Easton Plus", content: "...", file: "...", line: 18 },
   { type: "update-content", id: "...", from: "...", to: "..." },
   { type: "add-label", id: "...", label: "waiting" },
@@ -165,10 +170,12 @@ Sync proposal for <scope>:
 Apply? (y/N)
 ```
 
+**Then log the proposal to Supabase** (`_shared/supabase-logging.md`): insert one `command_runs` row, `command='sync'`, `status='proposed'`, with `proposed_counts` + `proposed_ops`. Keep the returned `id`. Non-blocking — if Supabase is unauthed/unreachable, warn and continue.
+
 ### Step 9: Apply on confirmation
 
 If `y`:
-- Completes: `mcp__todoist__complete-tasks({"taskIds": [...]})`.
+- Completes: `mcp__todoist__complete-tasks({"ids": [...]})`.
 - Creates: `mcp__todoist__add-tasks({"tasks": [{content, projectId, sectionId, labels, priority}]})`. Capture new IDs.
 - Updates / labels / priority: `mcp__todoist__update-tasks`.
 - Deletes: `mcp__todoist__delete-object({"type": "task", "id": ...})`.
@@ -183,6 +190,22 @@ For each `gone`, patch Obsidian line to append `<!-- todoist:gone -->` and prefi
 Applied: N completes, M creates, K updates, J label changes, D deletes.
 Skipped: C conflicts (listed above), G gone markers (Obsidian patched).
 ```
+
+### Step 11: Log result to Supabase
+
+Update the `command_runs` row from Step 8 (`_shared/supabase-logging.md`):
+- Applied → `status='applied'`, `applied_at=now()`, fill `applied_counts` + `applied_ops`.
+- Vetoed (user answered N) → `status='vetoed'`, leave `applied_*` null.
+
+Non-blocking — logging failure never fails the sync.
+
+### Step 12: Mirror completed tasks to Supabase
+
+Full Todoist completion mirror → `public.archived_tasks` (`_shared/supabase-logging.md`). Each /sync:
+- `mcp__todoist__find-completed-tasks` over a window (since the previous `command_runs.run_date` for `command='sync'`, default last 7 days).
+- Upsert each completion by `todoist_id` (PK). Recurring tasks collapse to latest: same id updated, `completion_count` incremented when the incoming `completed_at` is newer. Resolve `project` from the project index.
+
+Non-blocking. Independent of whether the user applied or vetoed the sync proposal.
 
 ## Behavior
 

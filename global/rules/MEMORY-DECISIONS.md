@@ -8,6 +8,9 @@ Format: `### YYYY-MM-DD — Decision title` followed by a brief description.
 
 <!-- Add entries below as decisions are made -->
 
+### 2026-05-29 — Claude Code usage statusline
+Added `statusLine` showing `[token count] | [cost] | [context %]`. Custom script `~/.claude/statusline-usage.py` (python3) — cost from statusline stdin payload (`cost.total_cost_usd`); token count + context parsed from session transcript JSONL (those aren't in the payload). Chose custom script over `ccusage` for exact format control. Token count = cumulative all-type tokens incl cache_read (toggle `INCLUDE_CACHE_READ`); cost is an estimate only (enterprise seat = not metered, no real charge); context limit auto-detects 1M vs 200k from model id (override `CLAUDE_CTX_LIMIT`). NOTE: `~/.claude/settings.json` is a symlink → `~/github/claude-config/global/settings.json` (edit the real target, not the symlink).
+
 ### 2026-05-29 — Archive completed tasks to Supabase (`archived_tasks`)
 `/sync` mirrors Todoist completions into `public.archived_tasks` (project `configs`/`jselgaytmwlstuuhrwzj`). Full mirror (every completed Todoist task, any source), one row per `todoist_id` (PK); recurring tasks collapse to latest with `completion_count` incremented when a newer completion lands. FK `last_run_id → command_runs.id`. Backfilled 28 recent completions. Mirror is Step 12 of /sync, non-blocking, runs regardless of apply/veto. Window = since previous sync run's run_date (default last 7 days). Schema + upsert in `_shared/supabase-logging.md`.
 

@@ -94,5 +94,9 @@
     }
   },
   "awaySummaryEnabled": false,
-  "preferredNotifChannel": "notifications_disabled"
+  "preferredNotifChannel": "notifications_disabled",
+  "statusLine": {
+    "type": "command",
+    "command": "/usr/bin/python3 \"$HOME/.claude/scripts/statusline-usage.py\""
+  }
 }

@@ -23,6 +23,7 @@ link "global/settings.json"                      "settings.json"
 link "global/agents"                             "agents"
 link "global/rules"                              "rules"
 link "global/commands"                           "commands"
+link "global/scripts"                            "scripts"
 link "global/CLAUDE.md"                          "CLAUDE.md"
 link "template/.claude/hooks/auto-trust-folder.sh" "hooks/auto-trust-folder.sh"
 

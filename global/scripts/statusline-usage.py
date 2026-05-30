@@ -10,6 +10,15 @@ import sys, json, os
 # set to False to exclude cache_read (counts only "new" tokens processed).
 INCLUDE_CACHE_READ = True
 
+# ANSI color. disable with NO_COLOR env (https://no-color.org).
+_USE_COLOR = not os.environ.get("NO_COLOR")
+
+
+def c(text, code):
+    if not _USE_COLOR:
+        return text
+    return f"\033[{code}m{text}\033[0m"
+
 
 def fmt_tokens(n):
     if n >= 1_000_000:
@@ -70,7 +79,14 @@ def main():
             pass
 
     pct = min(100, round(100 * ctx / limit)) if limit else 0
-    print(f"{fmt_tokens(total)} tok | {cost_str} | {pct}% ctx")
+
+    # context %: green <60, yellow <85, red otherwise.
+    pct_color = "32" if pct < 60 else ("33" if pct < 85 else "31")
+    tok = c(f"{fmt_tokens(total)} tok", "36")        # cyan
+    cost_out = c(cost_str, "33")                      # yellow
+    pct_out = c(f"{pct}% ctx", pct_color)
+    sep = c("|", "90")                                # dim/gray
+    print(f"{tok} {sep} {cost_out} {sep} {pct_out}")
 
 
 main()

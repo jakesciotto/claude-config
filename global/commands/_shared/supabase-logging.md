@@ -42,22 +42,19 @@ where id = $id;
 
 ## Counts keys
 
-`creates, completes, moves, updates, labels, deletes, conflicts, gone, noops` — omit zeros if desired.
+For `/sync`: `creates, homings, moves, edits, completes, note_completes, deletes, gone`. For `/daily-plan`: `today, overdue, backlog, new_appended`. Omit zeros if desired.
 
 ## Op shape (proposed_ops / applied_ops)
 
 ```json
-{ "type": "create|complete|move|update-content|add-label|set-priority|delete|conflict|gone",
+{ "type": "create|home|move-project|set-due|set-deadline|set-labels|update-content|complete|note-complete|delete|gone",
   "id": "<todoist id|null>", "content": "...", "target": "<project path|null>",
-  "file": "Daily Notes/2026-05/2026-05-29.md", "line": 71,
-  "suggested": true, "affirmed": true }
+  "file": "Daily Notes/2026-05/2026-05-29.md", "line": 71 }
 ```
-
-`suggested`/`affirmed` apply to `[>]`-originated moves: `suggested:true` always; `affirmed:true` when the user flipped `[>]`→`[ ]` (move applied), `affirmed:false` when flipped to `[-]` (rejected, left in Inbox).
 
 ## Completed-task mirror — `public.archived_tasks`
 
-Full mirror of Todoist completions, written by `/sync` (Step 12). One row per task (`todoist_id` PK); recurring tasks collapse to latest with a `completion_count`. Same project (`configs` / `jselgaytmwlstuuhrwzj`).
+Full mirror of Todoist completions, written by `/sync` (its final step). One row per task (`todoist_id` PK); recurring tasks collapse to latest with a `completion_count`. Same project (`configs` / `jselgaytmwlstuuhrwzj`).
 
 ```sql
 insert into public.archived_tasks

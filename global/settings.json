@@ -3,7 +3,6 @@
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8"
   },
-  "effortLevel": "high",
   "permissions": {
     "allow": [
       "Read(*)",
@@ -59,6 +58,10 @@
       }
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "/usr/bin/python3 \"$HOME/.claude/scripts/statusline-usage.py\""
+  },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
@@ -93,10 +96,8 @@
       }
     }
   },
+  "effortLevel": "high",
   "awaySummaryEnabled": false,
   "preferredNotifChannel": "notifications_disabled",
-  "statusLine": {
-    "type": "command",
-    "command": "/usr/bin/python3 \"$HOME/.claude/scripts/statusline-usage.py\""
-  }
+  "agentPushNotifEnabled": true
 }

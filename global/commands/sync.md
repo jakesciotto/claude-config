@@ -1,246 +1,151 @@
 ---
-description: Bidirectional Obsidian ↔ Todoist sync via path mapping + checkbox state diff
+description: Obsidian → Todoist sync (create, home, edit metadata, complete) plus completion pull-back. Obsidian is the brain.
 argument-hint: "[scope: today|all|<path>]"
 ---
 
-You are running Obsidian ↔ Todoist sync for Jake. Scope $1 (default: `today` = today's Daily Note + project READMEs touched today). Forward direction (Obsidian state → Todoist) for completes/creates/edits/labels; reverse direction (Todoist completions → Obsidian `[x]`) via the bidirectional reconciliation pass. Todoist is the source of truth for completion state.
+You are running Obsidian → Todoist sync for Jake. Scope `$1` (default: `today`).
 
-## Context
+## Truth model
 
-Path mapping rules: `Resources/conventions/todoist-mapping.md` (authoritative).
-Vault: `/Users/jakesciotto/Documents/Obsidian Vault`, via `mcp__obsidian__*`.
-Todoist: `mcp__todoist__*`.
+**Obsidian is the brain.** One push direction + two narrow pulls (completion, homing):
+
+- **Obsidian → Todoist** for everything Jake controls: create, project (via `[Tag]` / path), content, due, deadline, labels, complete (`[x]`), delete (`[-]`). On any metadata difference, **Obsidian wins** — overwrite Todoist with the note's value.
+- **Todoist → Obsidian**, two cases only: (1) a task completed elsewhere → patch the note line to `[x]`; (2) **homing** — an open Todoist task with no tracked line in its home file gets a line appended there.
+- Todoist owns only: task `id`, recurrence pattern.
+
+Completion is monotonic toward done — unchecking does not reopen; reopen in Todoist.
+
+**DEFAULT IS DRY-RUN.** Never write without an explicit `y`.
+
+## Task identity + home (read this — it prevents the duplicate-task bug)
+
+- **Identity = the Todoist `id`.** A line is *tracked* once it carries `<!-- todoist:id -->`.
+- **Permanent home = the mapped project file** (`Areas/**/*.md`, `Projects/**/README.md`), resolved through the single bidirectional `project ↔ path` table below. Each open task has **exactly one** tracked line in its home file.
+- **A Daily Note is a dated working view**, not a home. A `[Tag]` line there is how Jake creates/schedules/completes; the same task lives permanently in its project file.
+- `[Tag]`, file path, and Todoist project are **one identity through one table** — `[Marriage]` ≡ `Areas/Home/marriage.md` ≡ `Areas > Home > Marriage`. Never resolve a tag and a path differently.
+- **Create exactly once.** Before diffing, build a vault-wide index of every tracked `id` and the files it appears in. A no-id line creates once and is then tracked; the homing pull only ever appends an `id` that has **no tracked line in its home file**. An `id` already tracked anywhere is never re-created.
 
 ## Scope resolution
 
 | `$1` | Files scanned |
 |---|---|
-| `today` (default) | `Daily Notes/<YYYY-MM>/<today>.md` (month folder = first 7 chars of date), all `Projects/**/README.md`, all `Areas/**/*.md` (excluding `Templates/`, `Resources/`, `Archives/`, `Meeting Notes/`, `Areas/Work/Scratch/`) |
-| `all` | Same as `today` + last 7 Daily Notes (search `Daily Notes/<YYYY-MM>/` folders; may span two month folders near a boundary) |
-| `<explicit path>` | Just that file |
+| `today` (default) | `Daily Notes/<YYYY-MM>/<today>.md`, all `Projects/**/README.md`, all `Areas/**/*.md` (excl. `Templates/`, `Resources/`, `Archives/`, `Meeting Notes/`, `Areas/Work/Scratch/`) |
+| `all` | Same as `today` + last 7 Daily Notes |
+| `<explicit path>` | Just that file (homing into other files still applies) |
 
-### Completion reconciliation — bidirectional (ALWAYS runs, every scope)
+## Build the bidirectional mapping
 
-Regardless of `$1`, before the main walk, sweep the **last 7 Daily Notes** for every checkbox line carrying a `<!-- todoist:<id> -->`, and reconcile completion state in **both directions** in one pass. This is the true bidirectional layer: forward closes the leak where `[x]` ticked on a day `/sync` isn't run is never revisited; reverse closes the gap where a task completed directly in Todoist stays `[ ]` in the note forever (and would otherwise reopen on conflict).
-
-1. Collect every line matching `^\s*- \[(.)\] .*<!-- todoist:([a-zA-Z0-9]+) -->` across the last 7 daily notes (any checkbox state, not just done).
-2. Dedupe by Todoist ID (keep each occurrence's file+line for writes). Build the Todoist-state set with ONE batched `find-completed-tasks` over the window, then `fetch-object` only for IDs absent from it. `checked:true` (or a completion record in the window) = done; otherwise open; 404 = gone.
-3. Reconcile per line by `(obsidian_state, todoist_state)`:
-   - **Obsidian done (`[x]`/`[-]`) + Todoist open** → FORWARD: stage `complete` (`[x]`) or `delete` (`[-]`) on Todoist.
-   - **Obsidian open (`[ ]`/`[/]`/`[?]`/`[>]`) + Todoist done** → REVERSE: stage `note-complete` — patch the Obsidian line `[<state>]`→`[x]` (Todoist is the source of truth for completion). `[>]` proposed lines included: if the underlying task is done, the proposal is moot — mark `[x]`.
-   - **Obsidian open + Todoist gone (404)** → stage `gone` marker (existing behavior).
-   - **States agree** (both done / both open) → no-op.
-4. Recurring tasks: a recurring task in Todoist reads `checked:false` (it advanced to the next instance), so live state alone won't flip it. Use the `find-completed-tasks` window's completion records (which DO include recurring completions): if a completion record for that ID has `completedAt` on/before the note's date, treat that occurrence as done — FORWARD no-op (already done), REVERSE flip the note line `[x]`. Never stage a `complete` that would re-fire a recurring task.
-5. Fold both directions into the proposal: `Forward completes (older notes)` and `Reverse completes (Todoist → note [x])` groups, visible before apply.
-
-**Reopen semantics:** unchecking a box in Obsidian does NOT reopen a Todoist-completed task — reverse-sync will re-check it. To reopen, reopen in Todoist (the system of record); the next `/sync` reflects it back.
-
-## Build mapping table at runtime
-
-Call `mcp__todoist__find-projects({"limit": 200})`. Build:
+`mcp__todoist__find-projects({"limit":200})` → build BOTH directions of one table:
 
 ```
-todoist_index = {
-  "Projects > Easton Plus": <id>,
-  "Areas > Home > Marriage": <id>,
-  "Areas > Work > Customers > AskElephant": <id>,
-  ...
-}
-
-path_to_project = {
-  "Projects/Easton Plus/": "Projects > Easton Plus",
-  "Areas/Home/marriage.md": "Areas > Home > Marriage",
-  "Areas/Work/Customers/askelephant.md": "Areas > Work > Customers > AskElephant",
-  ...
-}
+project_of_path = { "Areas/Home/marriage.md": "Areas > Home > Marriage", "Projects/Easton Plus/": "Projects > Easton Plus", ... }
+home_path_of_project = inverse(project_of_path)   // Todoist project → canonical Obsidian home file
+todoist_index = { "Areas > Home > Marriage": <id>, ... }   // qualified name → Todoist project id
+tag_resolves_to = leaf-name lookup into the SAME table (e.g. "Marriage" → "Areas > Home > Marriage")
 ```
 
-Path mapping logic (per file path):
+Path / tag rules are authoritative in `Resources/conventions/todoist-mapping.md` (Projects subfolders → project root; Areas files → path + section-header rule; leaf `[Tag]` → same project).
 
-1. **Projects:**
-   - `Projects/README.md` → `Projects > Miscellaneous`
-   - `Projects/<Name>/**` → `Projects > <Name>` (use folder name as project)
-2. **Areas/Home:**
-   - `Areas/Home/README.md` → `Areas > Home` (root)
-   - `Areas/Home/<slug>.md` → `Areas > Home > <CapitalizedSlug>` (lookup in todoist_index)
-3. **Areas/Personal:**
-   - `Areas/Personal/README.md` → `Areas > Personal` (root)
-   - `Areas/Personal/<slug>.md` → `Areas > Personal > <CapitalizedSlug>`
-4. **Areas/Work:**
-   - `Areas/Work/README.md` → `Areas > Work` (root)
-   - `Areas/Work/<slug>.md` (goals/admin/learning) → `Areas > Work` root, section name matches `<Slug>`
-   - `Areas/Work/csm-playbook.md`, `Areas/Work/nrr-tracking.md` → `Areas > Work` (root)
-   - `Areas/Work/Customers/<slug>.md` → `Areas > Work > Customers > <DisplayName>` (resolve slug back to Todoist display name via slug rule)
-5. **Daily Note:** per-checkbox tag parsing (see below).
+## Pre-pass: tracked-id index
 
-## For each scoped file
+Across **all** scoped files, collect every `<!-- todoist:id -->` → `{id: [(file, line, state, is_home_file)]}`. `is_home_file` = the file equals `home_path_of_project[project_of(id)]`. This index drives create-once, homing, and multi-location dedup.
 
-### Step 1: Read file
+Lines carrying `<!-- todoist:gone -->` are **sentinels** — skip all op generation for them (no create, no diff, no homing). They mark a task that 404'd in a prior run.
 
-`mcp__obsidian__read_note({"path": file})`.
+## Walk each scoped file
 
-### Step 2: Walk checkboxes
+### 1. Parse each checkbox line
 
-Regex match each line: `^(\s*)- \[(.)\] (.*)$`
+Regex `^(\s*)- \[(.)\] (.*)$`. Extract, in order: leading `[Tag]` (Daily Notes), trailing `<!-- todoist:id -->`, trailing parenthetical `(due …, deadline …, labels: a, b)`.
 
-State map:
-- `[ ]` → open
-- `[/]` → in-progress
-- `[x]` → done
-- `[-]` → cancelled
-- `[?]` → waiting
-- `[!]` → important
-- `[*]` → star
-- `[>]` → proposed (agent-suggested categorization/move, awaiting user affirmation)
+State: every marker **except** `[x]` (done) and `[-]` (cancelled) is treated as **open** — `[ ]`/`[/]`/`[?]` and any other glyph are visual-only, with no label/priority meaning.
 
-### Step 3: Determine Todoist target per checkbox
+### 2. Resolve target project
 
-**For Daily Note files:**
-- Parse inline tag `[<Tag>]` at start of content. Look up in todoist_index → target project.
-  - Inbox triage section uses a trailing `→ [<Tag>]` annotation as the routing tag. The checkbox state gates whether the agent acts on it (see affirmation flow below).
-- If no tag:
-  - Section header context: `## Quick capture*` or `## Inbox triage` → Todoist Inbox
-  - Else → Todoist Inbox (default)
-- Inline `[<Tag>]` stripped from content before storing as task content.
-- **Dedupe by ID:** the same Todoist ID may appear in multiple sections (Focus + triage + per-stream). Collapse to one task; act once. Obsidian state precedence: done > cancelled > in-progress > open.
-- **Proposal → affirmation flow (`[>]`):** the agent writes a suggested categorization/move as a `[>]` checkbox with the routing tag. `[>]` is a PROPOSAL — never write it to Todoist. Surface all `[>]` lines under a "Suggested (awaiting affirm)" bucket in the proposal.
-  - **Affirm:** user flips `[>]` → `[ ]`. Now eligible to move (see below).
-  - **Reject:** user flips `[>]` → `[-]` → leave in Inbox, no move; log `affirmed:false`.
-  - Same-run: act on whatever state the note holds when /sync runs — `[ ]` (affirmed) lines move now; `[>]` stay held.
-- **Auto-move affirmed tagged Inbox items:** for an **open `[ ]`** linked task whose Todoist `projectId` is Inbox and whose note tag maps to a real project, stage `project-move` (via `update-tasks` with `projectId`/`sectionId`). On apply, rewrite the note annotation `→ [<Tag>]` to `→ moved: [<Tag>]` and log the op with `suggested:true, affirmed:true`. Query Inbox once with `find-tasks({projectId: inbox})` rather than fetching each ID. `[>]` lines are NOT moved.
-- **Deadline/due reconcile:** if a note line's date annotation (`(deadline YYYY-MM-DD)` / `(due …)`) differs from Todoist, stage a `reschedule`/`deadline` update.
+- **Daily Notes:** `[Tag]` → table. No tag → Todoist Inbox.
+- **Project/Area files:** path → table, plus the Areas section-header rule.
 
-**For project/area files:**
-- `target_project` from path mapping.
-- `section_header` = nearest preceding `## <Name>` heading.
-- If `target_project` has a Todoist section matching `<Name>`: assign that section.
-- Else: project root (no section).
+### 3. Match + diff → ops
 
-### Step 4: Parse ID comment
+`id` present → `fetch-object` (404 → `gone`). No `id` → `create`.
 
-Regex on content trailing: `<!-- todoist:([a-zA-Z0-9]+) -->`
-
-If present: extract id. Strip comment from content for matching.
-If absent (`new` task or `gone` marker): no Todoist match by ID — try fuzzy match.
-
-### Step 5: Match to Todoist
-
-If `id`:
-- `mcp__todoist__fetch-object({"type": "task", "id": <id>})` → existing task or 404.
-- 404 → mark as `gone` for diff.
-
-Else (no id):
-- `mcp__todoist__find-tasks({"projectId": <target>, "searchText": <content>, "limit": 5})`.
-- Filter to exact content match (case-insensitive). If single match → use it. If multiple → flag conflict. If none → stage as `create`.
-
-### Step 6: Compute diff per checkbox
-
-| Obsidian state | Todoist state | Action |
+| Obsidian | Todoist | Op |
 |---|---|---|
-| open `[ ]` | open | no-op |
-| open `[ ]` | done | REVERSE-SYNC: stage `note-complete` (patch line → `[x]`). Todoist is source of truth for completion; do NOT reopen. To reopen, reopen in Todoist. |
-| in-progress `[/]` | open | no-op (state lives in Obsidian only for now) |
-| in-progress `[/]` | done | REVERSE-SYNC: stage `note-complete` (patch line → `[x]`) |
-| waiting `[?]` | done | REVERSE-SYNC: stage `note-complete` (patch line → `[x]`) |
-| done `[x]` | open | stage `complete` |
-| done `[x]` | done | no-op |
-| cancelled `[-]` | open | stage `delete` |
-| waiting `[?]` | open, no `waiting` label | stage `add-label: waiting` |
-| important `[!]` | priority p4 | stage `set-priority: p1` |
-| star `[*]` | no `star` label | stage `add-label: star` |
-| no id + open | n/a | stage `create` in target project/section |
-| content edited | mismatch w/ Todoist | stage `update-content` |
-| any linked | in Todoist Inbox, tag maps to real project | stage `project-move` to mapped project/section |
-| any linked | date annotation ≠ Todoist date | stage `reschedule` (due) / `deadline` update |
+| no id, open (any file) | — | `create` in target project → write id back into the line → if the line is in a Daily Note, also stage `home` (append a tracked line to the project's home file) |
+| open Todoist task, no tracked line in its **home file** | — | `home`: append `- [ ] content (markers) <!-- todoist:id -->` to the home file under `## Tasks` (or the file's primary task section; project root for Projects subfolders) |
+| tracked line, `[Tag]` changed (Daily Notes) | different project | `move-project` (`update-tasks` `projectId`/`sectionId`); re-home into the new project's file AND remove the stale tracked line from the **old** home file |
+| `(due)` add/edit/remove | differs | `set-due`/`clear-due` (`reschedule-tasks` if recurring) |
+| `(deadline)` add/edit/remove | differs | `set-deadline`/`clear-deadline` |
+| `(labels:)` add/edit/remove | differs | `set-labels` (full replace) / `clear-labels` |
+| content edited | differs | `update-content` |
+| `[x]` | open | `complete` |
+| `[-]` | open | `delete` |
+| any open state | **done in Todoist** | `note-complete`: patch line → `[x]` (mirror to every tracked line of that id) |
+| id 404 | gone | flag `> [!warning] Task gone in Todoist`; no Todoist write |
 
-Note `project-move` uses `update-tasks` with `projectId` — the `project-move` tool only moves projects between workspace/personal, not tasks.
+`move-project` uses `update-tasks` `projectId` (the `project-move` tool only moves projects workspace↔personal). Recurring: complete advances the next instance — never re-fire; reschedule via `reschedule-tasks` (preserves pattern).
 
-Mark `gone` (id 404) as: `> [!warning] Task gone in Todoist` annotation on the Obsidian line (no Todoist write).
+**Homing pass (this sources the `home` rows above).** For each project/area file in scope, call `mcp__todoist__find-tasks({"projectId": <that file's project>})` for open tasks. Any returned id with **no tracked line in that file** (per the pre-pass index, and not a `gone` sentinel) becomes a `home` op appending a line to it. This is bounded to scoped files — the default `today` scope already scans every `Projects/**/README.md` and `Areas/**/*.md`, so every active project's home file is covered in one pass. A task already tracked in its home file is never re-homed.
 
-### Step 7: Stage all diffs
+### 4. Stage + dedupe (multi-location precedence)
 
-The bidirectional reconciliation pass and the main walk can both emit ops for the same line (e.g. today's note is in both). **Dedupe the combined op list by `(type, id, file, line)`** — keep one. For completion ops specifically, dedupe by `(id)` across passes: a given task gets at most one `complete` (forward) or one `note-complete` (reverse), never both.
+A single `id` may appear in its home file **and** in today's Daily Note (normal steady state — view + home). Apply **at most one** op per id:
 
-Build a list of operations:
+- **Metadata** (due/deadline/labels/content/move): precedence **Daily Note (current working view) > home file**. If both carry edits that disagree, take the Daily Note's value and note the conflict.
+- **Completion:** honored from any location; `note-complete` and forward `complete` are mutually exclusive per id.
+- After any change, propagate the result to the id's other tracked lines via `mcp__obsidian__patch_note` using the **winning Obsidian value** — never read from Todoist. Completion mirrors `[x]`; a metadata edit copies the same parenthetical. This is an Obsidian→Obsidian consistency write, not a Todoist pull.
 
-```
-[
-  { type: "complete", id: "6...", content: "...", file: "Daily Notes/2026-05/2026-05-16.md", line: 12 },   // forward: Obsidian [x] → Todoist done
-  { type: "note-complete", id: "6...", file: "Daily Notes/2026-05/2026-05-20.md", line: 14, from: "[ ]" }, // reverse: Todoist done → Obsidian [x]
-  { type: "create", target: "Projects > Easton Plus", content: "...", file: "...", line: 18 },
-  { type: "update-content", id: "...", from: "...", to: "..." },
-  { type: "add-label", id: "...", label: "waiting" },
-  ...
-]
-```
+Dedupe the final op list by `(type, id, file, line)`.
 
-### Step 8: Present summary to user
+## Present, apply, log
+
+### 5. Proposal
 
 ```
 Sync proposal for <scope>:
-- N completes (forward: Obsidian [x] → Todoist)
-- R reverse-completes (Todoist done → Obsidian [x])
-- M creates (in projects: <breakdown>)
-- K content updates
-- J label/priority changes
-- D deletions
-- C conflicts (fuzzy/multi-match only — require manual resolution)
-- G gone (Obsidian lines flagged)
-
-[show full list, grouped by op type]
-
+- M creates · H homings (task → project file)
+- P project moves · E metadata edits
+- N completes · R note-completes (Todoist → [x])
+- D deletes · G gone
+[full list grouped by op type]
 Apply? (y/N)
 ```
 
-**Then log the proposal to Supabase** (`_shared/supabase-logging.md`): insert one `command_runs` row, `command='sync'`, `status='proposed'`, with `proposed_counts` + `proposed_ops`. Keep the returned `id`. Non-blocking — if Supabase is unauthed/unreachable, warn and continue.
+Log the proposal to Supabase (`_shared/supabase-logging.md`): one `command_runs` row, `command='sync'`, `status='proposed'`, with `proposed_counts` + `proposed_ops`; keep the id. Non-blocking.
 
-### Step 9: Apply on confirmation
+### 6. Apply on `y`
 
-If `y`:
-- Completes: `mcp__todoist__complete-tasks({"ids": [...]})`.
-- Creates: `mcp__todoist__add-tasks({"tasks": [{content, projectId, sectionId, labels, priority}]})`. Capture new IDs.
-- Updates / labels / priority: `mcp__todoist__update-tasks`.
-- Deletes: `mcp__todoist__delete-object({"type": "task", "id": ...})`.
+Tools: `mcp__todoist__*` for Todoist ops; `mcp__obsidian__patch_note` for note writes (never `mcp__todoist__patch_note` — that does not exist).
 
-For each `note-complete` (reverse-sync), patch the Obsidian line via `mcp__obsidian__patch_note`, replacing the checkbox marker `[ ]`/`[/]`/`[?]`/`[>]` with `[x]` (match the full line to keep the replacement unique; preserve content + ID comment). No Todoist write.
+- Creates → `mcp__todoist__add-tasks` (capture ids) → `mcp__obsidian__patch_note` to inject `<!-- todoist:id -->`.
+- Homings → `patch_note` to append the tracked line to the home file.
+- Moves/content/due/deadline/labels → `mcp__todoist__update-tasks` (`set-labels` passes full array); recurring reschedules → `mcp__todoist__reschedule-tasks`. A `move-project` also re-homes: `patch_note` to append the line to the new project's file and remove it from the old one.
+- Completes → `complete-tasks`. Deletes → `delete-object`.
+- `note-complete` → `patch_note` line marker → `[x]` (match full line; preserve content + id), all tracked copies.
+- `gone` → `patch_note` append warning + `<!-- todoist:gone -->`.
 
-For each `create`, patch the Obsidian line via `mcp__obsidian__patch_note` to inject `<!-- todoist:<new-id> -->` after content.
-
-For each `gone`, patch Obsidian line to append `<!-- todoist:gone -->` and prefix with `[?]` if not already.
-
-### Step 10: Report
+### 7. Report + log result
 
 ```
-Applied: N completes, R reverse-completes (note → [x]), M creates, K updates, J label changes, D deletes.
-Skipped: C conflicts (listed above), G gone markers (Obsidian patched).
+Applied: M creates, H homings, P moves, E edits, N completes, R note-completes, D deletes. Flagged: G gone.
 ```
 
-### Step 11: Log result to Supabase
+Update the Step 5 row: `status='applied'`, `applied_at=now()`, fill `applied_counts` + `applied_ops`; or `status='vetoed'` on N. Non-blocking.
 
-Update the `command_runs` row from Step 8 (`_shared/supabase-logging.md`):
-- Applied → `status='applied'`, `applied_at=now()`, fill `applied_counts` + `applied_ops`.
-- Vetoed (user answered N) → `status='vetoed'`, leave `applied_*` null.
+### 8. Mirror completions to Supabase
 
-Non-blocking — logging failure never fails the sync.
-
-### Step 12: Mirror completed tasks to Supabase
-
-Full Todoist completion mirror → `public.archived_tasks` (`_shared/supabase-logging.md`). Each /sync:
-- `mcp__todoist__find-completed-tasks` over a window (since the previous `command_runs.run_date` for `command='sync'`, default last 7 days). **Reuse the completion set already fetched by the bidirectional reconciliation pass** if its window covers this one — avoid a redundant call.
-- Upsert each completion by `todoist_id` (PK). Recurring tasks collapse to latest: same id updated, `completion_count` incremented when the incoming `completed_at` is newer. Resolve `project` from the project index.
-
-Non-blocking. Independent of whether the user applied or vetoed the sync proposal.
+Full Todoist completion mirror → `public.archived_tasks` (`_shared/supabase-logging.md`). `find-completed-tasks` over the window (since previous `command='sync'` `run_date`, default 7 days); upsert by `todoist_id` (PK), recurring collapses to latest with `completion_count++`. Non-blocking; runs regardless of apply/veto.
 
 ## Behavior
 
-- DEFAULT IS DRY-RUN — never write without explicit `y`.
-- Backup safety: before any write, capture current Obsidian file content. On error during apply, no rollback (Todoist + Obsidian state may diverge — user re-runs).
-- Conflicts (Obsidian-done vs Todoist-done at different times) → flag, don't auto-resolve.
-- If Todoist MCP unavailable: abort with message.
-- Recurring tasks: completing a recurring task in Todoist auto-creates next instance — `/sync` shouldn't re-create from the Obsidian `[x]`. Detect `recurring: true` from Todoist task, treat `[x]` as `complete` only.
+- DRY-RUN default — never write without `y`.
+- Obsidian wins on all metadata. Only Todoist→Obsidian writes are `note-complete` and `home`.
+- Todoist MCP unavailable → abort with a message.
+- Before applying, capture current file content; on apply error, no auto-rollback (re-run to reconcile).
 
 ## Edge cases
 
-- **Subtasks** (Obsidian nested checkboxes with indent): preserve `parentId` from Todoist. New nested checkboxes → create with `parentId` matching the parent line's Todoist ID.
-- **Multi-line task descriptions** in Obsidian: only the bracket line is the task; following indented bullets become Todoist task description.
-- **Task content with `<!--` in body**: rare, but strip ID comment via narrow regex anchored at end-of-line.
+- **Subtasks** (nested checkboxes): preserve `parentId`; new nested lines create with the parent line's id as `parentId`.
+- **Multi-line descriptions:** only the bracket line is the task; following indented non-checkbox bullets become the Todoist description.
+- **`<!--` inside content:** strip the id comment with a narrow end-of-line-anchored regex.
+- **Homing target ambiguity:** if a project's home file has no `## Tasks` section, append under the file's first task-bearing `##` heading, else at end of file. Projects subfolder tasks always go to the README under `## Tasks`.

@@ -3,12 +3,12 @@ description: Bidirectional Obsidian ↔ Todoist sync via path mapping + checkbox
 argument-hint: "[scope: today|all|<path>]"
 ---
 
-You are running Obsidian → Todoist sync for Jake. Scope $1 (default: `today` = today's Daily Note + project READMEs touched today).
+You are running Obsidian ↔ Todoist sync for Jake. Scope $1 (default: `today` = today's Daily Note + project READMEs touched today). Forward direction (Obsidian state → Todoist) for completes/creates/edits/labels; reverse direction (Todoist completions → Obsidian `[x]`) via the bidirectional reconciliation pass. Todoist is the source of truth for completion state.
 
 ## Context
 
 Path mapping rules: `Resources/conventions/todoist-mapping.md` (authoritative).
-Vault: `/Users/jakesciotto/Documents/posthog`, via `mcp__obsidian__*`.
+Vault: `/Users/jakesciotto/Documents/Obsidian Vault`, via `mcp__obsidian__*`.
 Todoist: `mcp__todoist__*`.
 
 ## Scope resolution
@@ -18,6 +18,22 @@ Todoist: `mcp__todoist__*`.
 | `today` (default) | `Daily Notes/<YYYY-MM>/<today>.md` (month folder = first 7 chars of date), all `Projects/**/README.md`, all `Areas/**/*.md` (excluding `Templates/`, `Resources/`, `Archives/`, `Meeting Notes/`, `Areas/Work/Scratch/`) |
 | `all` | Same as `today` + last 7 Daily Notes (search `Daily Notes/<YYYY-MM>/` folders; may span two month folders near a boundary) |
 | `<explicit path>` | Just that file |
+
+### Completion reconciliation — bidirectional (ALWAYS runs, every scope)
+
+Regardless of `$1`, before the main walk, sweep the **last 7 Daily Notes** for every checkbox line carrying a `<!-- todoist:<id> -->`, and reconcile completion state in **both directions** in one pass. This is the true bidirectional layer: forward closes the leak where `[x]` ticked on a day `/sync` isn't run is never revisited; reverse closes the gap where a task completed directly in Todoist stays `[ ]` in the note forever (and would otherwise reopen on conflict).
+
+1. Collect every line matching `^\s*- \[(.)\] .*<!-- todoist:([a-zA-Z0-9]+) -->` across the last 7 daily notes (any checkbox state, not just done).
+2. Dedupe by Todoist ID (keep each occurrence's file+line for writes). Build the Todoist-state set with ONE batched `find-completed-tasks` over the window, then `fetch-object` only for IDs absent from it. `checked:true` (or a completion record in the window) = done; otherwise open; 404 = gone.
+3. Reconcile per line by `(obsidian_state, todoist_state)`:
+   - **Obsidian done (`[x]`/`[-]`) + Todoist open** → FORWARD: stage `complete` (`[x]`) or `delete` (`[-]`) on Todoist.
+   - **Obsidian open (`[ ]`/`[/]`/`[?]`/`[>]`) + Todoist done** → REVERSE: stage `note-complete` — patch the Obsidian line `[<state>]`→`[x]` (Todoist is the source of truth for completion). `[>]` proposed lines included: if the underlying task is done, the proposal is moot — mark `[x]`.
+   - **Obsidian open + Todoist gone (404)** → stage `gone` marker (existing behavior).
+   - **States agree** (both done / both open) → no-op.
+4. Recurring tasks: a recurring task in Todoist reads `checked:false` (it advanced to the next instance), so live state alone won't flip it. Use the `find-completed-tasks` window's completion records (which DO include recurring completions): if a completion record for that ID has `completedAt` on/before the note's date, treat that occurrence as done — FORWARD no-op (already done), REVERSE flip the note line `[x]`. Never stage a `complete` that would re-fire a recurring task.
+5. Fold both directions into the proposal: `Forward completes (older notes)` and `Reverse completes (Todoist → note [x])` groups, visible before apply.
+
+**Reopen semantics:** unchecking a box in Obsidian does NOT reopen a Todoist-completed task — reverse-sync will re-check it. To reopen, reopen in Todoist (the system of record); the next `/sync` reflects it back.
 
 ## Build mapping table at runtime
 
@@ -122,8 +138,10 @@ Else (no id):
 | Obsidian state | Todoist state | Action |
 |---|---|---|
 | open `[ ]` | open | no-op |
-| open `[ ]` | done | conflict — ask user; default reopen Todoist |
+| open `[ ]` | done | REVERSE-SYNC: stage `note-complete` (patch line → `[x]`). Todoist is source of truth for completion; do NOT reopen. To reopen, reopen in Todoist. |
 | in-progress `[/]` | open | no-op (state lives in Obsidian only for now) |
+| in-progress `[/]` | done | REVERSE-SYNC: stage `note-complete` (patch line → `[x]`) |
+| waiting `[?]` | done | REVERSE-SYNC: stage `note-complete` (patch line → `[x]`) |
 | done `[x]` | open | stage `complete` |
 | done `[x]` | done | no-op |
 | cancelled `[-]` | open | stage `delete` |
@@ -141,11 +159,14 @@ Mark `gone` (id 404) as: `> [!warning] Task gone in Todoist` annotation on the O
 
 ### Step 7: Stage all diffs
 
+The bidirectional reconciliation pass and the main walk can both emit ops for the same line (e.g. today's note is in both). **Dedupe the combined op list by `(type, id, file, line)`** — keep one. For completion ops specifically, dedupe by `(id)` across passes: a given task gets at most one `complete` (forward) or one `note-complete` (reverse), never both.
+
 Build a list of operations:
 
 ```
 [
-  { type: "complete", id: "6...", content: "...", file: "Daily Notes/2026-05/2026-05-16.md", line: 12 },
+  { type: "complete", id: "6...", content: "...", file: "Daily Notes/2026-05/2026-05-16.md", line: 12 },   // forward: Obsidian [x] → Todoist done
+  { type: "note-complete", id: "6...", file: "Daily Notes/2026-05/2026-05-20.md", line: 14, from: "[ ]" }, // reverse: Todoist done → Obsidian [x]
   { type: "create", target: "Projects > Easton Plus", content: "...", file: "...", line: 18 },
   { type: "update-content", id: "...", from: "...", to: "..." },
   { type: "add-label", id: "...", label: "waiting" },
@@ -157,12 +178,13 @@ Build a list of operations:
 
 ```
 Sync proposal for <scope>:
-- N completes
+- N completes (forward: Obsidian [x] → Todoist)
+- R reverse-completes (Todoist done → Obsidian [x])
 - M creates (in projects: <breakdown>)
 - K content updates
 - J label/priority changes
 - D deletions
-- C conflicts (require manual resolution)
+- C conflicts (fuzzy/multi-match only — require manual resolution)
 - G gone (Obsidian lines flagged)
 
 [show full list, grouped by op type]
@@ -180,6 +202,8 @@ If `y`:
 - Updates / labels / priority: `mcp__todoist__update-tasks`.
 - Deletes: `mcp__todoist__delete-object({"type": "task", "id": ...})`.
 
+For each `note-complete` (reverse-sync), patch the Obsidian line via `mcp__obsidian__patch_note`, replacing the checkbox marker `[ ]`/`[/]`/`[?]`/`[>]` with `[x]` (match the full line to keep the replacement unique; preserve content + ID comment). No Todoist write.
+
 For each `create`, patch the Obsidian line via `mcp__obsidian__patch_note` to inject `<!-- todoist:<new-id> -->` after content.
 
 For each `gone`, patch Obsidian line to append `<!-- todoist:gone -->` and prefix with `[?]` if not already.
@@ -187,7 +211,7 @@ For each `gone`, patch Obsidian line to append `<!-- todoist:gone -->` and prefi
 ### Step 10: Report
 
 ```
-Applied: N completes, M creates, K updates, J label changes, D deletes.
+Applied: N completes, R reverse-completes (note → [x]), M creates, K updates, J label changes, D deletes.
 Skipped: C conflicts (listed above), G gone markers (Obsidian patched).
 ```
 
@@ -202,7 +226,7 @@ Non-blocking — logging failure never fails the sync.
 ### Step 12: Mirror completed tasks to Supabase
 
 Full Todoist completion mirror → `public.archived_tasks` (`_shared/supabase-logging.md`). Each /sync:
-- `mcp__todoist__find-completed-tasks` over a window (since the previous `command_runs.run_date` for `command='sync'`, default last 7 days).
+- `mcp__todoist__find-completed-tasks` over a window (since the previous `command_runs.run_date` for `command='sync'`, default last 7 days). **Reuse the completion set already fetched by the bidirectional reconciliation pass** if its window covers this one — avoid a redundant call.
 - Upsert each completion by `todoist_id` (PK). Recurring tasks collapse to latest: same id updated, `completion_count` incremented when the incoming `completed_at` is newer. Resolve `project` from the project index.
 
 Non-blocking. Independent of whether the user applied or vetoed the sync proposal.

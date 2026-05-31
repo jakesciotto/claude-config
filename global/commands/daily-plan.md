@@ -11,7 +11,7 @@ Jake's PARA system:
 - Index: `Resources/system-design/README.md`
 - Operational rules: `Resources/conventions/{naming,para-structure,todoist-mapping,project-readme-fields,agent-commands-usage}.md`
 - Template: `Templates/daily-note.md`
-- Vault: `/Users/jakesciotto/Documents/posthog`, via `mcp__obsidian__*`
+- Vault: `/Users/jakesciotto/Documents/Obsidian Vault`, via `mcp__obsidian__*`
 - Todoist: `mcp__todoist__*`
 - Calendar: `mcp__claude_ai_Google_Calendar__*`
 
@@ -27,7 +27,7 @@ Jake's PARA system:
 
 5. **Project READMEs** — `mcp__obsidian__list_directory({"path": "Projects"})`, then for each dir read `Projects/<name>/README.md`. Capture frontmatter.
 
-6. **Yesterday's Daily Note** — `mcp__obsidian__read_note({"path": "Daily Notes/<YYYY-MM>/<yesterday>.md"})` where `<YYYY-MM>` = yesterday's month folder (mind month rollover). If exists, parse unchecked items (`- [ ]`, `- [/]`, `- [?]`) for roll-forward.
+6. **Yesterday's Daily Note** — `mcp__obsidian__read_note({"path": "Daily Notes/<YYYY-MM>/<yesterday>.md"})` where `<YYYY-MM>` = yesterday's month folder (mind month rollover). If exists, parse unchecked items (`- [ ]`, `- [/]`, `- [?]`) as roll-forward **candidates**. A candidate is carried forward only if it is still open in Todoist AND has a deadline (see Roll-forward rule — liveness gate, then deadline gate).
 
 7. **Build projectId → canonical tag map** — `mcp__todoist__find-projects({"limit": 100})`. Build lookup: `projectId → "[<Leaf Name>]"` per [[todoist-mapping]] canonical inline tag rule (leaf project/area name only, e.g. `[Easton Plus]`, `[Marriage]`, `[AskElephant]`).
 
@@ -41,7 +41,12 @@ Jake's PARA system:
 
 - **Blocked/waiting** — collect tasks with label `waiting` + Project READMEs where `blocked_by` non-null. Use `- [?]` state.
 
-- **Roll-forward** — yesterday's unchecked + in-progress items appended to `## Quick capture` (preserve ID comments).
+- **Roll-forward (liveness + deadline gated)** — yesterday's unchecked + in-progress items are roll-forward *candidates*. Apply two gates per candidate, in order:
+  1. **Liveness — drop if already done in Todoist.** A note line `[ ]`/`[/]` only reflects Obsidian state; a task completed directly in Todoist still shows unchecked in the note. If the line has a `<!-- todoist:<id> -->` comment, check live Todoist state: if `checked:true` (completed) or the ID 404s (gone), do NOT roll it forward — and reconcile the prior note's line to `[x]` so it stops resurfacing. Reuse the step 2 today+overdue capture; a candidate absent from the open-task set is presumed done — confirm with a targeted `fetch-object` before dropping. (This is the reverse-direction gap: Todoist→Obsidian completions aren't mirrored, so roll-forward must verify, not assume.)
+  2. **Deadline — drop if undated.** Of the still-open candidates, carry forward **only those with a deadline**: a line deadline marker (`(deadline YYYY-MM-DD)` / `[deadline: …]`), or a non-null Todoist `deadlineDate` via the embedded ID. A due date is NOT a deadline.
+  - **Open + has deadline** → append to `## Quick capture` (preserve ID comment + deadline marker).
+  - **Open + no deadline** → do NOT roll forward; resurfaces via its own due/overdue query, not perpetual roll-forward.
+  - **Already done/gone** → do NOT roll forward; reconcile prior note line to `[x]`.
 
 ## Canonical inline tags
 

@@ -1,4 +1,4 @@
-# MEMORY-PREFERENCES.md
+# memory-preferences.md
 
 # Preferences
 

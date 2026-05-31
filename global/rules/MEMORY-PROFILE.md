@@ -1,4 +1,4 @@
-# MEMORY-PROFILE.md
+# memory-profile.md
 
 ## About the user
 

@@ -56,9 +56,9 @@ Lines carrying `<!-- todoist:gone -->` are **sentinels** — skip all op generat
 
 ### 1. Parse each checkbox line
 
-Regex `^(\s*)- \[(.)\] (.*)$`. Extract, in order: leading `[Tag]` (Daily Notes), trailing `<!-- todoist:id -->`, trailing parenthetical `(due …, deadline …, labels: a, b)`.
+Regex `^(\s*)- \[(.)\] (.*)$`. Extract, in order: leading `[Tag]` (Daily Notes), trailing `<!-- todoist:id -->`, trailing parenthetical `(due …, deadline …, labels: a, b)`. Inside the parenthetical, parse only the `due` / `deadline` / `labels:` segments; **ignore any other token** — never treat it as content or a label.
 
-State: every marker **except** `[x]` (done) and `[-]` (cancelled) is treated as **open** — `[ ]`/`[/]`/`[?]` and any other glyph are visual-only, with no label/priority meaning.
+State: only `[x]` (done) and `[-]` (cancelled) carry meaning; **every other glyph is open** — including the daily-plan-emitted render-only flags `[!]` (overdue) and `[*]` (future deadline), which sync ignores entirely. No tier/priority is ever derived from the checkbox glyph — tiers (`now`/`next`/`waiting`/`blocked`) live in the `labels:` parenthetical and sync through the normal label channel.
 
 ### 2. Resolve target project
 

@@ -1,5 +1,5 @@
 ---
-description: Draft today's Daily Note from Todoist (due-today + overdue + undated backlog). READ-ONLY on Todoist; never overwrites an existing note.
+description: Draft today's Daily Note from Todoist into tiered lanes (Now/Next/Waiting/Blocked/Backlog). READ-ONLY on Todoist; never overwrites an existing note.
 argument-hint: "[YYYY-MM-DD]"
 ---
 
@@ -28,8 +28,9 @@ Check whether the note already exists (`mcp__obsidian__read_note`; treat "file n
 
 1. **Calendar today** — `mcp__claude_ai_Google_Calendar__list_events` (primary, today). Unavailable → `> [!warning] Calendar unavailable` callout, skip Calendar.
 2. **Due today + overdue** — `mcp__todoist__find-tasks-by-date({"startDate":"today","overdueOption":"include-overdue","limit":50})`. Capture `id`, `content`, `projectId`, `priority`, `labels`, `dueDate`, `deadlineDate`.
-3. **Undated open tasks** — `mcp__todoist__find-tasks({"filter":"no date","limit":50})`. Keep only those with **no `dueDate` AND no `deadlineDate`** (Todoist's "no date" filters on due only — drop any that carry a deadline). These are the date-me queue. If the result hit the limit, note the truncation in the summary (no silent cap).
-4. **Project tree** — `mcp__todoist__find-projects({"limit":200})`. Build `projectId → "[<Leaf Name>]"` tag map (leaf = the project's own name).
+3. **Tier-labeled open tasks** — `mcp__todoist__find-tasks({"filter":"@now | @next | @waiting | @blocked","limit":100})`. Capture the same fields incl. `labels`. These feed the Now/Next/Waiting/Blocked lanes regardless of date.
+4. **Backlog (untriaged)** — `mcp__todoist__find-tasks({"filter":"no date","limit":100})`. Keep those with **no `dueDate` AND no tier label** (`now`/`next`/`waiting`/`blocked`). A `deadlineDate` is allowed: **future** deadline → folds into Backlog rendered `- [*]`; **past** deadline → overdue, belongs in Now (input 2 surfaces it), not here. Drop tier-labeled tasks (they file into their lane). If the result hit the limit, note truncation in the summary (no silent cap).
+5. **Project tree** — `mcp__todoist__find-projects({"limit":200})`. Build `projectId → "[<Leaf Name>]"` tag map (leaf = the project's own name).
 
 ## Line format (authoritative: [[todoist-mapping]])
 
@@ -39,19 +40,23 @@ Check whether the note already exists (`mcp__obsidian__read_note`; treat "file n
 
 - **One `[Tag]` = one project** (leaf name from the tree). It drives `/sync` routing for any line Jake later edits or creates. Tasks living in Todoist **Inbox** have no project → emit **no tag**; Jake adds a `[Tag]` to route them (next `/sync` moves them out of Inbox).
 - Parenthetical carries only the markers that exist: `due` / `deadline` / `labels:` (labels last). Omit the parenthetical entirely if none apply.
+- **Overdue lines** (due date OR deadline `< today`) render `- [!]` and sort to the top of Now. **Future-deadline Backlog lines** render `- [*]`. Both glyphs are render-only — `/sync` treats them as `open` and ignores the glyph. Never encode state in the content or parenthetical.
 - `<!-- todoist:id -->` is always last.
-- **Dedupe by Todoist ID** — each ID appears once. Precedence: Today > Overdue > Backlog.
+- **Dedupe by Todoist ID — each ID appears in exactly one section.** Section precedence: **Now > Next > Waiting > Blocked > Backlog**.
 
 ## Case A — note missing (create fresh)
 
-Read `Templates/daily-note.md`, follow its structure, populate:
+Read `Templates/daily-note.md`, follow its structure, populate. Assign each task to **exactly one** section by precedence Now > Next > Waiting > Blocked > Backlog:
 
 - **Calendar** — today's events (or warning callout).
-- **Focus** — LEAVE EMPTY. Jake curates this.
-- **Today** — tasks whose `dueDate` is today. Flat list (no Area/section hierarchy).
-- **Overdue** — tasks whose `dueDate` is before today.
-- **Backlog — needs a date** — undated open tasks (input 3), minus any already in Today/Overdue. This is where Jake assigns deadlines; `/sync` pushes them and the task graduates on a future plan.
+- **Now** — due date OR deadline `<= today` (due-today + overdue, from input 2) OR labeled `now` (input 3). Overdue lines render `- [!]`, sorted first. Flat list.
+- **Next** — labeled `next` (input 3), not already placed in Now.
+- **Waiting** — labeled `waiting`, not already placed above.
+- **Blocked** — labeled `blocked`, not already placed above.
+- **Backlog** — untriaged pool (input 4): no due date, no tier label, not already placed above. Future-deadline tasks render `- [*]`; the rest `- [ ]`.
 - **Quick capture** — LEAVE EMPTY (blank zone for net-new tasks Jake types).
+
+A task with multiple tier labels lands in its highest-precedence section only. Emit `_none_` under any lane with no items.
 
 Write the note (`mcp__obsidian__write_note`).
 
@@ -60,14 +65,14 @@ Write the note (`mcp__obsidian__write_note`).
 NEVER overwrite. Steps:
 
 1. Read the existing note; collect every `<!-- todoist:id -->` already present.
-2. From inputs 2-3, take every Todoist task whose ID is **not** already in the note.
+2. From inputs 2-4, take every Todoist task whose ID is **not** already in the note.
 3. If any: append them under a `## New since plan` heading using the line format above (`mcp__obsidian__patch_note`, append-only, existing content untouched). **`## New since plan` is the one heading daily-plan creates outside `Templates/daily-note.md` — an intentional, documented exception: it is an append-only overflow zone that exists only when re-running on an existing note, never in a fresh Case-A note.**
 4. Touch nothing else — no edits to existing lines, sections, Focus, or Quick capture.
 5. If nothing new: report "note exists, no new items — unchanged."
 
 ## Log to Supabase
 
-One `command_runs` row (`_shared/supabase-logging.md`): `command='daily-plan'`, `scope=<date>`, `status='applied'`, `applied_at=now()`. `applied_counts` = `{today, overdue, backlog, new_appended}`; `applied_ops` = section summary. Non-blocking — warn and continue if Supabase is unreachable.
+One `command_runs` row (`_shared/supabase-logging.md`): `command='daily-plan'`, `scope=<date>`, `status='applied'`, `applied_at=now()`. `applied_counts` = `{now, next, waiting, blocked, backlog, new_appended}`; `applied_ops` = section summary. Non-blocking — warn and continue if Supabase is unreachable.
 
 ## Behavior
 
@@ -76,4 +81,4 @@ One `command_runs` row (`_shared/supabase-logging.md`): `command='daily-plan'`, 
 - **No dry-run gate** (unlike `/sync`): Case A is a one-time write when the note is missing; Case B is strictly append-only. Both are non-destructive, so daily-plan writes directly without a `y` prompt.
 - Calendar MCP unavailable → warning callout, skip section.
 - Todoist MCP unavailable → warning; Case A writes the empty template scaffold, Case B reports unchanged.
-- Summary: `Daily plan: T today, O overdue, B backlog.` (Case A) or `Appended N new item(s) to existing note.` / `Note exists, unchanged.` (Case B).
+- Summary: `Daily plan: N now, X next, W waiting, K blocked, B backlog.` (Case A) or `Appended N new item(s) to existing note.` / `Note exists, unchanged.` (Case B).

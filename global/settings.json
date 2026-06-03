@@ -74,7 +74,8 @@
     "posthog@claude-plugins-official": false,
     "caveman@caveman": true,
     "todoist@doist": true,
-    "supabase@claude-plugins-official": true
+    "supabase@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "PostHog-skills": {

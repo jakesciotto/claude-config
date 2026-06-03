@@ -22,6 +22,8 @@ PARA reference:
 
 5. **Todoist productivity stats** — `mcp__todoist__get-productivity-stats` for the week.
 
+6. **Someday (parked) tasks** — `mcp__todoist__find-tasks({"filter":"@someday","limit":200})`. Capture `id`, `content`, `projectId`, `dueDate`, `deadlineDate`. The daily note only counts these; the weekly review is where Jake actually re-triages them.
+
 ## Analyze
 
 - **Status snapshot** — count Projects by `status`: active / paused / blocked / done. Group by stream.
@@ -69,6 +71,11 @@ tags:
 ## Friction
 - [!] <task> — appeared in N daily notes uncompleted. Suggest: <unblock/redefine/drop>
 
+## Someday — parked (re-triage)
+> [!info] Every `@someday` task, grouped by `[Tag]`. This is the weekly checkpoint for the parked pile the daily note only counts. To graduate one, edit its line in the task's **home project file** (or Todoist): swap `labels: someday` for an active tier (`now`/`next`/`waiting`/`blocked`) or add a due date, then `/sync`. These lines are a read surface — editing them here does not sync (weekly-review notes are outside `/sync` scope).
+- [ ] [<Tag>] <task> (deadline YYYY-MM-DD?) <!-- todoist:id -->
+- [ ] ...
+
 ## Velocity
 - Tasks completed this week: <N>
 - vs. prior week: <delta>
@@ -91,7 +98,7 @@ If `N`: skip moves, exit cleanly.
 ## Log run to Supabase
 
 Per `_shared/supabase-logging.md`, `command='weekly-review'`, `scope=<week start date>`:
-- After writing the review note + showing proposed archive moves (Part 2): insert `status='proposed'` row with `proposed_counts` (stale items, archive candidates) + `proposed_ops`. Keep `id`.
+- After writing the review note + showing proposed archive moves (Part 2): insert `status='proposed'` row with `proposed_counts` (stale items, archive candidates, someday count) + `proposed_ops`. Keep `id`.
 - On `y`: update → `status='applied'`, `applied_at=now()`, fill `applied_*` with moved projects.
 - On `N`: update → `status='vetoed'` (review note still written; record that in `notes`).
 

@@ -1,7 +1,10 @@
 ---
-description: Obsidian → Todoist sync (create, home, edit metadata, complete) plus completion pull-back. Obsidian is the brain.
+description: "DEPRECATED — do not run. Replaced by the Obsidian-native task system (/capture, /daily, /archive)."
 argument-hint: "[scope: today|all|<path>]"
 ---
+
+> [!danger] DEPRECATED — DO NOT RUN.
+> This bidirectional sync is retired. Tasks now live **only** in Obsidian (Dataview inline fields); running this would push markdown to Todoist and recreate the exact drift this system was built to kill. Use **`/capture`** (Todoist Inbox → Obsidian), **`/daily`**, and **`/archive`** instead. See `docs/superpowers/specs/2026-06-02-obsidian-native-task-system-design.md`. If you truly need this, delete this banner first.
 
 You are running Obsidian → Todoist sync for Jake. Scope `$1` (default: `today`).
 
@@ -33,6 +36,8 @@ Completion is monotonic toward done — unchecking does not reopen; reopen in To
 | `all` | Same as `today` + last 7 Daily Notes |
 | `<explicit path>` | Just that file (homing into other files still applies) |
 
+**The home-file walk is mandatory — never deferred.** Every `today`/`all` run reads and reconciles *every* `Projects/**/README.md` (+ subfiles) and `Areas/**/*.md`, not just the Daily Note. Skipping it is the root cause of page↔Todoist drift (pages silently go stale for weeks). The Step 7 report **must** state the count of home files scanned; a count of 0 on a `today`/`all` run is a bug, not a clean run.
+
 ## Build the bidirectional mapping
 
 `mcp__todoist__find-projects({"limit":200})` → build BOTH directions of one table:
@@ -58,7 +63,7 @@ Lines carrying `<!-- todoist:gone -->` are **sentinels** — skip all op generat
 
 Regex `^(\s*)- \[(.)\] (.*)$`. Extract, in order: leading `[Tag]` (Daily Notes), trailing `<!-- todoist:id -->`, trailing parenthetical `(due …, deadline …, labels: a, b)`. Inside the parenthetical, parse only the `due` / `deadline` / `labels:` segments; **ignore any other token** — never treat it as content or a label.
 
-State: only `[x]` (done) and `[-]` (cancelled) carry meaning; **every other glyph is open** — including the daily-plan-emitted render-only flags `[!]` (overdue) and `[*]` (future deadline), which sync ignores entirely. No tier/priority is ever derived from the checkbox glyph — tiers (`now`/`next`/`waiting`/`blocked`) live in the `labels:` parenthetical and sync through the normal label channel.
+State: only `[x]` (done) and `[-]` (cancelled) carry meaning; **every other glyph is open** — including the daily-plan-emitted render-only flags `[!]` (overdue) and `[*]` (future deadline), which sync ignores entirely. No tier/priority is ever derived from the checkbox glyph — tiers (`now`/`next`/`waiting`/`blocked`/`someday`) live in the `labels:` parenthetical and sync through the normal label channel.
 
 ### 2. Resolve target project
 
@@ -91,9 +96,10 @@ State: only `[x]` (done) and `[-]` (cancelled) carry meaning; **every other glyp
 
 A single `id` may appear in its home file **and** in today's Daily Note (normal steady state — view + home). Apply **at most one** op per id:
 
-- **Metadata** (due/deadline/labels/content/move): precedence **Daily Note (current working view) > home file**. If both carry edits that disagree, take the Daily Note's value and note the conflict.
+- **Metadata** (due/deadline/labels/content/move): precedence **Daily Note (current working view) > home file** — BUT guarded by staleness (below). If both carry edits that disagree, take the Daily Note's value and note the conflict.
+- **Staleness guard — never overwrite a fresher value with a staler one.** A home file whose `last_touched` predates the task's Todoist activity is a *stale archive*, not an edit. When a home-file value disagrees with Todoist and the file is stale, **Todoist wins → refresh the page** (do not push the old page value to Todoist). Page-wins applies only when the page is the *fresher* edit. This blocks the failure mode where a 3-week-old page clobbers correct current Todoist data.
 - **Completion:** honored from any location; `note-complete` and forward `complete` are mutually exclusive per id.
-- After any change, propagate the result to the id's other tracked lines via `mcp__obsidian__patch_note` using the **winning Obsidian value** — never read from Todoist. Completion mirrors `[x]`; a metadata edit copies the same parenthetical. This is an Obsidian→Obsidian consistency write, not a Todoist pull.
+- After any change, propagate the result to the id's other tracked lines **including the home-file line** via `mcp__obsidian__patch_note` using the **winning value** (the Obsidian winner, or Todoist when the staleness guard fired). Completion mirrors `[x]` / drops the completed line from a home-file task list; a metadata edit copies the same parenthetical. Home-file lines are reconciled every run — they are not exempt from the completion/metadata pull, which is why pages stay current instead of drifting.
 
 Dedupe the final op list by `(type, id, file, line)`.
 
@@ -127,8 +133,12 @@ Tools: `mcp__todoist__*` for Todoist ops; `mcp__obsidian__patch_note` for note w
 ### 7. Report + log result
 
 ```
+Scope <scope>: scanned <F> home files + <D> daily note(s).
 Applied: M creates, H homings, P moves, E edits, N completes, R note-completes, D deletes. Flagged: G gone.
+⚠ Drift: <list any id whose tracked lines still disagree with Todoist after apply, or _none_>
 ```
+
+**Consistency check (always run, after apply).** For every tracked `id`, assert Todoist `==` each of its tracked lines on state, due, deadline, labels, and content. Any surviving mismatch is **drift** — list it under `⚠ Drift` with the id, the files involved, and the differing field. Drift after a successful apply means a bug (a line was missed); never report a run as clean while drift exists. A run that touched 0 home files on `today`/`all` scope is itself drift.
 
 Update the Step 5 row: `status='applied'`, `applied_at=now()`, fill `applied_counts` + `applied_ops`; or `status='vetoed'` on N. Non-blocking.
 

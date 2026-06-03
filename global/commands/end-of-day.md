@@ -1,81 +1,61 @@
 ---
-description: Reconcile today's Daily Note with Todoist completions, propose project README updates
+description: Reconcile today's completed tasks (from the vault), update project READMEs, optionally archive.
 argument-hint: "[YYYY-MM-DD]"
 ---
 
-You are running Jake's end-of-day reconcile for $1 (default: today).
+You are running Jake's end-of-day reconcile for `$1` (default: today). **Offline-first — reads the vault. Todoist is not involved** (it's a capture inbox only; tasks live in Obsidian).
 
 ## Context
-
-PARA reference:
-- `Resources/conventions/{para-structure,project-readme-fields,todoist-mapping}.md`
-- `Resources/system-design/README.md`
+- Vault: `/Users/jakesciotto/Documents/Obsidian Vault` (`mcp__obsidian__*`)
+- Conventions: `Resources/conventions/{para-structure,project-readme-fields,task-system}.md`
+- Supabase archive: project `configs` / `jselgaytmwlstuuhrwzj`, table `archived_tasks` (`_shared/supabase-logging.md`)
 
 ## Gather
 
-Run in parallel:
-
-1. **Today's Daily Note** — `mcp__obsidian__read_note({"path": "Daily Notes/<YYYY-MM>/<date>.md"})` (month folder = first 7 chars of `<date>`). Parse checked (`- [x]`) vs unchecked items per section.
-
-2. **Todoist completed today** — `mcp__todoist__find-completed-tasks` since today 00:00 local. Capture content + projectId.
-
-3. **All active project READMEs** — list `Projects/`, read each `<name>/README.md` frontmatter. Capture: `name`, `last_touched`, `next_action`, `blocked_by`, `status`.
+1. **Completed, not-yet-archived tasks** — scan `Areas/**/*.md` + `Projects/**/*.md` for `- [x]` lines (exclude `Templates/`, `Archives/`, `Areas/Work/Documentation/`, `Areas/Work/Scratch/`, `Projects/GTM Toolkit/csm-hud.md`). These are recent completions (pruned later by `/archive`). Parse content + inline fields (`[tier::]`, `[completion::]`); the file's path → its project.
+2. **Active project READMEs** — list `Projects/`, read each `<name>/README.md` frontmatter: `name`, `status`, `last_touched`, `next_action`, `blocked_by`.
 
 ## Reconcile
 
-For each Todoist task completed today, find the matching project (via `@<project-slug>` label or projectId mapping to a Project README's `todoist_filter`):
+For each project with a completed task today:
+- Propose `last_touched: <today>`.
+- If a completed task matches/supersedes the current `next_action`, propose a new `next_action` from that project's remaining open `[tier:: next]` (else `[tier:: now]`, else any open) task.
 
-- Propose `last_touched: <today>` update for that README.
-- If the completed task content matches or supersedes the current `next_action`, propose a new `next_action` candidate from remaining `@next` tasks in that project.
+Projects with `last_touched` > 7 days and no completion → flag **neglected**.
 
-For each Project with `last_touched` older than 7 days (no recent completion): flag as **neglected**.
+## Output — Part 1: append summary to today's daily note
 
-## Output — Part 1: Append summary to today's Daily Note
-
-Use `mcp__obsidian__patch_note` to insert at the end:
+`mcp__obsidian__patch_note` to append (the daily note is a live Dataview view; this is a journal record, not a task list):
 
 ```markdown
 
 ## End-of-day reconcile
-
 > [!info] Generated <timestamp>
 
 **Completed today:**
 - [x] <project> — <task>
 
-**Rolled forward (uncompleted + in-progress):**
-- [ ] <task>
-- [/] <task>
-
 **Project README updates proposed:**
 - Projects/<name>/README.md — `next_action: "<new>"`, `last_touched: <today>`
 
-**Neglected projects (> 7 days no touch):**
-- [?] <name> — last touched <date>
+**Neglected projects (> 7 days):**
+- <name> — last touched <date>
 ```
 
-## Output — Part 2: Wait for user confirm
+## Output — Part 2: confirm README updates
 
-Stop. Show the proposed README diffs in conversation. Ask:
+Stop. Show proposed README diffs. Ask `Apply README updates? (y/N)`. On `y`: `mcp__obsidian__update_frontmatter` per project. On `N`/blank: no-op.
 
-> "Apply README updates? (y/N)"
+## Output — Part 3: offer to archive
 
-If `y`: for each proposed update, use `mcp__obsidian__update_frontmatter` to patch. Confirm each write.
+Ask: `Sweep today's completed tasks to Supabase + prune from pages now? (y/N)` — on `y`, run the `/archive` flow.
 
-If `N` or blank: no-op, exit cleanly with message "No README changes applied."
+## Log to Supabase
 
-## Log run to Supabase
-
-Per `_shared/supabase-logging.md`, `command='end-of-day'`, `scope=<date>`:
-- At Part 2 (showing proposed README diffs): insert `status='proposed'` row with `proposed_counts` (completions reconciled, README updates proposed) + `proposed_ops`. Keep `id`.
-- On `y`: update → `status='applied'`, `applied_at=now()`, fill `applied_*`.
-- On `N`: update → `status='vetoed'`.
-
-Non-blocking.
+`command_runs`, `command='end-of-day'`, `scope=<date>` (`_shared/supabase-logging.md`): `proposed` at Part 2, `applied`/`vetoed` after. Non-blocking.
 
 ## Behavior
-
-- Do NOT mark Todoist tasks complete (user does that in Todoist).
-- Do NOT auto-write README changes without confirmation.
-- Read-only on Todoist apart from optional task completion confirmations.
-- If Daily Note missing for `<date>`: report "No Daily Note for <date> — did you run /daily-plan?" and exit.
+- Offline except Supabase logging + optional archive. **No Todoist.**
+- The daily note is a live Dataview view — never parse it for task state; read the PARA pages.
+- Never auto-write README changes without confirmation.
+- If no daily note exists for `<date>`, still run the reconcile + create the note via `/daily` first (or skip the Part-1 append and report).

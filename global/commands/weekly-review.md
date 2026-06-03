@@ -1,41 +1,33 @@
 ---
-description: Weekly snapshot — project status, stale items, archive candidates, wins/friction
+description: Weekly snapshot from the vault — project status, stale items, archive candidates, wins, someday re-triage.
 argument-hint: "[YYYY-MM-DD week end]"
 ---
 
-You are running Jake's weekly review for the week ending $1 (default: today).
+You are running Jake's weekly review for the week ending `$1` (default: today). **Offline-first — reads the vault + the Supabase archive. Todoist is not involved.**
 
 ## Context
-
-PARA reference:
-- `Resources/conventions/{para-structure,project-readme-fields,todoist-mapping}.md`
+- Vault: `/Users/jakesciotto/Documents/Obsidian Vault` (`mcp__obsidian__*`)
+- Conventions: `Resources/conventions/{para-structure,project-readme-fields,task-system}.md`
+- Supabase: project `configs` / `jselgaytmwlstuuhrwzj`, table `archived_tasks` (`_shared/supabase-logging.md`)
 
 ## Gather (parallel)
 
-1. **All Project READMEs** — list `Projects/`, read each. Capture frontmatter (name, status, priority, next_action, blocked_by, target_date, last_touched).
-
-2. **All Area sub-files** — read `Areas/Home/*.md`, `Areas/Personal/*.md`, `Areas/Work/*.md` (excluding `Customers/`). Capture: stale `last_touched`.
-
-3. **Last 7 Daily Notes** — for each of past 7 days, read `Daily Notes/<YYYY-MM>/<date>.md` if exists (compute each day's month folder; window may span two folders near a month boundary). Parse `End-of-day reconcile` sections + checked items.
-
-4. **Todoist completed this week** — `mcp__todoist__find-completed-tasks` since 7 days ago. Group by projectId.
-
-5. **Todoist productivity stats** — `mcp__todoist__get-productivity-stats` for the week.
-
-6. **Someday (parked) tasks** — `mcp__todoist__find-tasks({"filter":"@someday","limit":200})`. Capture `id`, `content`, `projectId`, `dueDate`, `deadlineDate`. The daily note only counts these; the weekly review is where Jake actually re-triages them.
+1. **Project READMEs** — list `Projects/`, read each. Frontmatter: `name`, `status`, `priority`, `next_action`, `blocked_by`, `target_date`, `last_touched`.
+2. **Area sub-files** — `Areas/Home/*.md`, `Areas/Personal/*.md`, `Areas/Work/*.md` (excl. `Customers/`). Capture stale `last_touched`.
+3. **Completed this week** — query Supabase `archived_tasks WHERE completed_date >= <week start>` (the durable record after `/archive` prunes them from pages), PLUS any current `- [x]` lines still in `Areas/**`/`Projects/**` not yet archived. Group by project.
+4. **Someday pile** — scan `Areas/**`/`Projects/**` for open tasks with `[tier:: someday]` (excl. the reference files). This is the weekly re-triage list.
 
 ## Analyze
-
-- **Status snapshot** — count Projects by `status`: active / paused / blocked / done. Group by stream.
-- **Stale Projects** — `last_touched` > 14 days ago → propose archive or revive.
+- **Status snapshot** — count Projects by `status` (active/paused/blocked/done), grouped by stream.
+- **Stale Projects** — `last_touched` > 14 days → propose archive or revive.
 - **Done Projects** — `status: done` → propose move to `Archives/`.
-- **Wins** — top 5 completed tasks of the week. Rank by priority (`p1` first), then by project size of completions.
-- **Friction** — items appearing in 3+ consecutive Daily Notes as unchecked → flag for unblocking, redefining, or dropping.
-- **Velocity** — total tasks completed this week vs prior week (if prior data available).
+- **Wins** — top completed tasks this week (from gather #3).
+- **Friction** — open tasks whose `[deadline::]` or `[due::]` is now in the past (overdue) and still not done → flag to unblock/redefine/drop.
+- **Velocity** — count completed this week vs prior week (from `archived_tasks`, if prior data exists).
 
-## Output — Part 1: Write weekly review note
+## Output — Part 1: write the review note
 
-Write to `Daily Notes/<YYYY-MM>/<date>-weekly-review.md` (month folder of `<date>`):
+Write `Daily Notes/<YYYY-MM>/<date>-weekly-review.md`:
 
 ```markdown
 ---
@@ -47,66 +39,50 @@ tags:
 ---
 
 # Weekly Review — week ending <date>
-
 > [!info] Generated <timestamp>
 
 ## Status snapshot
-
 | Stream | Active | Paused | Blocked | Done |
 |---|---|---|---|---|
 | Projects | N | N | N | N |
-| Areas (Home/Personal/Work) | N | — | — | — |
 
-**Active projects:** <names>
-**Blocked projects:** <names with blocker>
-**Done projects (archive candidates):** <names>
+**Active:** <names>  ·  **Blocked:** <names + blocker>  ·  **Done (archive candidates):** <names>
 
-## Stale (> 14 days no touch)
-- [?] <project> — last touched <date>
+## Stale (> 14 days)
+- <project> — last touched <date>
 
 ## Wins this week
 - [x] [<project>] <task>
-- [x] ...
 
-## Friction
-- [!] <task> — appeared in N daily notes uncompleted. Suggest: <unblock/redefine/drop>
+## Friction (overdue + open)
+- <task> — <due/deadline> passed. Suggest: <unblock/redefine/drop>
 
-## Someday — parked (re-triage)
-> [!info] Every `@someday` task, grouped by `[Tag]`. This is the weekly checkpoint for the parked pile the daily note only counts. To graduate one, edit its line in the task's **home project file** (or Todoist): swap `labels: someday` for an active tier (`now`/`next`/`waiting`/`blocked`) or add a due date, then `/sync`. These lines are a read surface — editing them here does not sync (weekly-review notes are outside `/sync` scope).
-- [ ] [<Tag>] <task> (deadline YYYY-MM-DD?) <!-- todoist:id -->
-- [ ] ...
-
-## Velocity
-- Tasks completed this week: <N>
-- vs. prior week: <delta>
-
-## Notes
-<empty for user reflection>
+## Someday — re-triage
+> Edit `[tier:: someday]` → an active tier (or add `[due::]`) in the task's page to graduate it.
+```dataview
+TASK
+FROM ("Areas" OR "Projects") AND -"Areas/Work/Documentation" AND -"Areas/Work/Scratch" AND -"Projects/GTM Toolkit/csm-hud"
+WHERE !completed AND tier = "someday"
+GROUP BY file.folder
 ```
 
-## Output — Part 2: Confirm archive moves
+## Velocity
+- Completed this week: <N> (vs prior <N>)
 
-Stop. For any Project with `status: done`, show in conversation:
+## Notes
+<empty for reflection>
+```
 
-> "Move these to Archives/? (y/N)"
-> - Projects/<name>/
+(The Someday block is a live Dataview query — it stays current; no hardcoded list.)
 
-If `y`: for each, use `mcp__obsidian__move_note` to relocate `Projects/<name>/README.md` → `Archives/projects/<YYYY-MM-DD>-<name>/README.md`. Also move any sub-files in the project folder.
+## Output — Part 2: confirm archive moves
 
-If `N`: skip moves, exit cleanly.
+Stop. For any Project with `status: done`: ask `Move these to Archives/? (y/N)`. On `y`: `mcp__obsidian__move_note` each `Projects/<name>/README.md` → `Archives/projects/<YYYY-MM-DD>-<name>/README.md` (+ sub-files). On `N`: skip.
 
-## Log run to Supabase
-
-Per `_shared/supabase-logging.md`, `command='weekly-review'`, `scope=<week start date>`:
-- After writing the review note + showing proposed archive moves (Part 2): insert `status='proposed'` row with `proposed_counts` (stale items, archive candidates, someday count) + `proposed_ops`. Keep `id`.
-- On `y`: update → `status='applied'`, `applied_at=now()`, fill `applied_*` with moved projects.
-- On `N`: update → `status='vetoed'` (review note still written; record that in `notes`).
-
-Non-blocking.
+## Log to Supabase
+`command_runs`, `command='weekly-review'`, `scope=<week start>` (`_shared/supabase-logging.md`): `proposed` with counts (stale, archive candidates, someday count), then `applied`/`vetoed`. Non-blocking.
 
 ## Behavior
-
-- Read-only on Todoist.
-- Confirm before any Archive move.
-- If <7 Daily Notes available: fall back to README-only snapshot, note "Daily Notes data incomplete" at top.
-- If Todoist offline: skip Velocity section, warn in callout.
+- Reads vault (offline) + Supabase. **No Todoist.**
+- Confirm before any archive move.
+- If Supabase is unreachable: fall back to current vault `[x]` lines for Wins/Velocity and note the data is partial.

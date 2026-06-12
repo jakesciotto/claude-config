@@ -21,6 +21,8 @@ link() {
 
 link "global/settings.json"                      "settings.json"
 link "global/agents"                             "agents"
+link "global/skills"                             "skills"
+link "global/references"                         "references"
 link "global/rules"                              "rules"
 link "global/commands"                           "commands"
 link "global/scripts"                            "scripts"

@@ -4,3 +4,10 @@
 # keep projects local
 projects/*
 global/_shared
+
+# deprecated commands kept locally, outside the loaded command tree
+global/commands-archive/
+
+# references: track the dir, never the contents (may hold customer data / PII)
+global/references/*
+!global/references/.gitkeep

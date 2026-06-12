@@ -101,6 +101,5 @@
   "awaySummaryEnabled": false,
   "skipWorkflowUsageWarning": true,
   "preferredNotifChannel": "notifications_disabled",
-  "agentPushNotifEnabled": true,
-  "model": "claude-fable-5[1m]"
+  "agentPushNotifEnabled": true
 }

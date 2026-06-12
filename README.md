@@ -1,87 +1,78 @@
 # README.md
 
-Global settings and template for rolling out & maintaining Claude across multiple machines and workspaces.
+Global settings and a project template for rolling out & maintaining Claude across multiple machines and workspaces.
 
-####  Global Settings
+`bootstrap.sh` symlinks the `global/` contents into `~/.claude` (idempotent; safe to re-run).
 
-_All symlinked to top-level `.claude` directory._
+#### Global Settings
 
-`CLAUDE.md` &rarr; top-level workflow settings.
+_Symlinked into `~/.claude` by `bootstrap.sh`._
 
-`agents/`&rarr; general agents for use.
+- `settings.json` → permissions, model aliases, plugins, hooks, statusline.
+- `CLAUDE.md` → top-level role and memory-update rules.
+- `rules/` → memory files (loaded every session):
+  - `memory-profile.md` → user info relevant to discussions.
+  - `memory-preferences.md` → preferences, plus compute/model and subagent guardrails.
+  - `memory-decisions.md` → dated log of decisions.
+  - `memory-sessions.md` → rolling summary of the last 10 substantive sessions.
+- `commands/` → active slash commands (`capture`, `_shared/`).
+- `scripts/` → e.g. `statusline-usage.py`.
+- `agents/` → global agents. _Empty; reserved for future agents._
+- `skills/` → global skills. _Empty; reserved for future skills._
 
-  - `code-simplification-specialist.md`
-
-`rules/` &rarr; symlinked to top-level `.claude`.
-
-  - `MEMORY-DECISIONS.md` &rarr; dated log of decisions made during sessions.
-  - `MEMORY-PREFERENCES.md` &rarr; user preferences (code style, comments).
-  - `MEMORY-PROFILES.md` &rarr; user information relevant to discussions.
-  - `MEMORY-SESSIONS.md` &rarr; rolling summary of last 10 substantive sessions.
+Deprecated commands live in `global/commands-archive/` (gitignored, outside the loaded command tree, kept locally for reference).
 
 #### Project Level Template
 
-- To-do: shell script to copy to projects.
+_Copied into a project's `.claude/` to seed structure. Tracked locally in a `.gitignored` `projects/` folder so per-project changes can be diffed._
 
-_A .gitignored folder has each of my project-level Claude settings in it so that modifications can be tracked or changed across projects._
-
-`CLAUDE.md` &rarr; project-level workflow settings.
-
-`agents/`
-
-`hooks/`
-
-  - To-do: fix hook that updates semnatic versioning of recent commits.
-  - To-do: create hook that guarantees `project` folder gets updated every time a commit is made.
-
-`plans/` 
-
-  - `DONE.md` &rarr; after a certain number of lines are contained in the `project/TODO.md`file, we will put the finished tasks here. 
-  - _Future_ - there is sometimes need for an `archive` folder contained within.
-
-`project` &rarr; main project-specific folder (where the real shit happens).
-
-  - `ARCHITECTURE.md`
-  - `CAPABILITIES.md`
-  - `CHANGELOG.md`
-  - `MEMORY.md`
-  - `TESTING.md`
-  - `TODO.md`
-
-`rules/` &rarr; project-level rules that contain workflow specifics or repo settings that override global settings.
-
-  - `REPOSITORY.md`
-  - `WORKFLOW.md`
-
+- `CLAUDE.md` → project behavioral rules.
+- `AGENTS.md` → directory map and where-to-find-information.
+- `agents/`, `hooks/`, `skills/` → project-scoped extensions.
+- `plans/`
+  - `DONE.md` → finished tasks moved out of `project/TODO.md` once it grows large.
+- `project/` → main project-specific docs:
+  - `ARCHITECTURE.md`, `CAPABILITIES.md`, `CHANGELOG.md`, `MEMORY.md`, `TESTING.md`, `TODO.md`
+- `rules/` → project rules that override global settings:
+  - `REPOSITORY.md`, `WORKFLOW.md`
 
 #### Directory Structure
 
 ```
-├── global
-│   ├── CLAUDE.md 
-│   ├── rules
-│   │   ├── MEMORY-DECISIONS.md
-│   │   ├── MEMORY-PREFERENCES.md
-│   │   ├── MEMORY-PROFILE.md
-│   │   └── MEMORY-SESSIONS.md
-│   └── settings.json
+├── bootstrap.sh
 ├── README.md
+├── global
+│   ├── CLAUDE.md
+│   ├── settings.json
+│   ├── agents/
+│   ├── skills/
+│   ├── commands
+│   │   ├── capture.md
+│   │   └── _shared/
+│   ├── scripts
+│   │   └── statusline-usage.py
+│   └── rules
+│       ├── memory-profile.md
+│       ├── memory-preferences.md
+│       ├── memory-decisions.md
+│       └── memory-sessions.md
 └── template
-    ├── .claude
-    │   ├── agents
-    │   ├── CLAUDE.md
-    │   ├── hooks
-    │   ├── plans
-    │   │   └── DONE.md
-    │   ├── project
-    │   │   ├── ARCHITECTURE.md
-    │   │   ├── CAPABILITIES.md
-    │   │   ├── CHANGELOG.md
-    │   │   ├── MEMORY.md
-    │   │   ├── TESTING.md
-    │   │   └── TODO.md
-    │   └── rules
-    │       ├── REPOSITORY.md
-    │       └── WORKFLOW.md
-    └── AGENTS.md
+    ├── AGENTS.md
+    └── .claude
+        ├── CLAUDE.md
+        ├── agents/
+        ├── hooks/
+        ├── skills/
+        ├── plans
+        │   └── DONE.md
+        ├── project
+        │   ├── ARCHITECTURE.md
+        │   ├── CAPABILITIES.md
+        │   ├── CHANGELOG.md
+        │   ├── MEMORY.md
+        │   ├── TESTING.md
+        │   └── TODO.md
+        └── rules
+            ├── REPOSITORY.md
+            └── WORKFLOW.md
 ```

@@ -1,4 +1,4 @@
-# MEMORY-SESSIONS.md
+# memory-sessions.md
 
 Rolling summary of the last 10 substantive sessions. Older entries are removed when new ones are added. One-offs and trivial tasks are not logged.
 

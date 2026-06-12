@@ -11,10 +11,12 @@
 
 ### 2. Subagent Strategy
 
-- Use subagents liberally to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
+Subagents and the Workflow/ultracode tool burn tokens fast. Use only when they pay for themselves (see global `rules/memory-preferences.md`).
+
+- USE when: 2+ genuinely independent parallel tasks; a broad search/exploration that would flood the main context (fan out, keep only the conclusion); work needing an isolated context window.
+- DON'T use for: sequential/dependent steps; trivial or single-file work; "throwing more compute" with no parallelism or isolation reason.
+- One task per subagent for focused execution.
+- Workflow/ultracode (dozens of agents): explicit opt-in only — never launch unprompted, and state rough cost first.
 
 ### 3. Self-Improvement Loop
 

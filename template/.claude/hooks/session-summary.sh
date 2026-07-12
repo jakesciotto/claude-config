@@ -7,6 +7,9 @@
 
 set -euo pipefail
 
+# Re-entry guard: claude -p below also triggers SessionEnd. Exit immediately if already running.
+[ -n "${CLAUDE_SUMMARY_RUNNING:-}" ] && exit 0
+
 PAYLOAD=$(cat)
 ENV_FILE="$HOME/.claude/hooks/.session-summary.env"
 LOG="$HOME/.claude/hooks/session-summary.log"
@@ -46,6 +49,7 @@ CLAUDE_BIN="$HOME/.local/bin/claude"
 
   [ -n "$convo" ] || { echo "$(date -u +%FT%TZ) empty convo ($session_id)"; exit 0; }
 
+  export CLAUDE_SUMMARY_RUNNING=1
   summary=$(printf '%s' "$convo" | head -c 120000 | "$CLAUDE_BIN" -p --model claude-sonnet-4-6 \
     "Summarize this Claude Code session in 3-6 terse bullet points: what was worked on, key decisions, and outcomes. Output only the bullets, no preamble." \
     2>>"$LOG" || echo "")

@@ -45,6 +45,7 @@
       "TaskStop(*)"
     ]
   },
+  "model": "opus[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -85,7 +86,8 @@
     "caveman@caveman": true,
     "todoist@doist": true,
     "supabase@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true
+    "vercel@claude-plugins-official": true,
+    "hogpilot@hogpilot": true
   },
   "extraKnownMarketplaces": {
     "PostHog-skills": {
@@ -105,11 +107,19 @@
         "source": "github",
         "repo": "doist/todoist-mcp"
       }
+    },
+    "hogpilot": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/jakesciotto/github/hogpilot"
+      }
     }
   },
-  "effortLevel": "high",
+  "effortLevel": "xhigh",
   "awaySummaryEnabled": false,
+  "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "preferredNotifChannel": "notifications_disabled",
+  "switchModelsOnFlag": false,
   "agentPushNotifEnabled": true
 }

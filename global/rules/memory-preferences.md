@@ -17,6 +17,11 @@
 ## Ambiguity
 - When something is unclear, ask before proceeding. Do not guess.
 
+## Planning artifacts (specs / plans)
+- Design specs and implementation plans go in `.claude/plans/` of the working repo. NOT in `docs/`, NOT in dated `docs/superpowers/` paths.
+- `.claude/plans/` is typically gitignored (local-only), so these artifacts are not committed.
+- Naming convention: `<feature>.md` for the spec/design, `<feature>-plan.md` for the plan. Kebab-case, no date prefix. (e.g. `references-merge-active.md` + `references-merge-active-plan.md`.)
+
 ## Task Pacing
 - If a task takes longer than 30 seconds, pause and evaluate whether still on track. Long tasks are the exception.
 - Don't expend energy/tokens unnecessarily. If goal lacks clarity, ask upfront before spinning on tools.

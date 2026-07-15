@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Behavioral rules for this project. The directory map is in `AGENTS.md`; workflow detail in `rules/WORKFLOW.md`; code/repo rules in `rules/REPOSITORY.md`.
+Behavioral rules for this project. The directory map is in `AGENTS.md`; workflow detail in `rules/workflow.md`; code/repo rules in `rules/repository.md`.
 
 ## Efficiency
 
@@ -12,10 +12,10 @@ Updates should be minimal and concise; if unsure whether a trigger warrants the 
 
 | Trigger                                                | File                    |
 |--------------------------------------------------------|-------------------------|
-| Commit that changes project architecture               | project/ARCHITECTURE.md |
-| User pushes a commit                                   | project/CHANGELOG.md    |
-| Any corrections, mistakes, or errors                   | project/MEMORY.md       |
-| Updates to testing strategy                            | project/TESTING.md      |
-| User pushes a commit (capture any new features)        | project/CAPABILITIES.md |
-| After a commit, update the captured tasks              | project/TODO.md         |
-| Code style change, or a new tool replacing another     | rules/REPOSITORY.md     |
+| Commit that changes project architecture               | project/architecture.md |
+| User pushes a commit                                   | project/changelog.md    |
+| Any corrections, mistakes, or errors                   | project/memory.md       |
+| Updates to testing strategy                            | project/testing.md      |
+| User pushes a commit (capture any new features)        | project/capabilities.md |
+| After a commit, update the captured tasks              | project/todo.md         |
+| Code style change, or a new tool replacing another     | rules/repository.md     |

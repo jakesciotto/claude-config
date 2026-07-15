@@ -23,11 +23,28 @@ link "global/settings.json"                      "settings.json"
 link "global/agents"                             "agents"
 link "global/skills"                             "skills"
 link "global/references"                         "references"
-link "global/rules"                              "rules"
 link "global/commands"                           "commands"
 link "global/scripts"                            "scripts"
 link "global/CLAUDE.md"                          "CLAUDE.md"
 link "template/.claude/hooks/auto-trust-folder.sh" "hooks/auto-trust-folder.sh"
+
+# Memory rules are live machine state, not symlinks: the repo holds bootstrap
+# templates in global/rules/, seeded once per machine and never clobbered.
+seed_rules() {
+    [ -L "$CLAUDE_DIR/rules" ] && rm "$CLAUDE_DIR/rules"   # migrate old symlink setup
+    mkdir -p "$CLAUDE_DIR/rules"
+    local f dest
+    for f in "$REPO"/global/rules/*.md; do
+        dest="$CLAUDE_DIR/rules/$(basename "$f")"
+        if [ -e "$dest" ]; then
+            echo "kept (live): $dest"
+        else
+            cp "$f" "$dest"
+            echo "seeded: $dest"
+        fi
+    done
+}
+seed_rules
 
 # Folder-trust lives in live machine state (~/.claude.json), NOT a symlink:
 # the file holds the project list and account data and must stay local.

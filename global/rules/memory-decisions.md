@@ -4,8 +4,5 @@ Dated log of decisions made during sessions. Each entry documents a choice with 
 
 Format: `### YYYY-MM-DD — Decision title` followed by a brief description.
 
-### 2026-06-16 — Session summaries auto-logged to Supabase via SessionEnd hook
-SessionEnd hook (`global/settings.json`) runs `~/.claude/hooks/session-summary.sh` (symlinked from `template/.claude/hooks/`). Script forks to background, flattens transcript.jsonl, summarizes via headless `claude -p --model claude-sonnet-4-6`, upserts to `configs` project (jselgaytmwlstuuhrwzj) table `public.claude_sessions` via PostgREST. Secret in `~/.claude/hooks/.session-summary.env` (chmod 600, NOT in git). Table RLS-on with no policies (service_role bypasses). Log at `~/.claude/hooks/session-summary.log`.
-
-### 2026-06-10 — Obsidian workflow reduced to /capture only
-Moved archive, daily, daily-plan, end-of-day, sync, weekly-review from `global/commands/` to `global/commands/deprecated/`. Only /capture remains active. `_shared/` kept in place since capture.md references it. Note: files in `deprecated/` still register as namespaced commands (`/deprecated:archive` etc.); delete the folder if they should disappear entirely.
+### 2026-07-15 — ff-pitfall-scan skill created
+New skill at `posthog/ff-pitfall-scan/` — gitignored folder for PostHog-internal material (internal table names stay out of git; folder created same day) — symlinked into `~/.claude/skills/`. Hypothesizes feature-flag instrumentation pitfalls for an account from CSM-visible signals only. Design choices: hypotheses + customer-ready asks (not report-only), quantitative signals + cross-team flag metadata (no Slack/Vitally sweep), signature catalog + open reasoning pass, personal skill with hp dependency (Vitally fallback). 8-signature catalog in `references/signatures.md`, validated SQL in `references/queries.md` (key finding: `billing_usagereport.report` exposes `decide_requests` vs `local_evaluation_requests` split; `postgres_posthog_featureflag` + `postgres_posthog_team` give cross-team flag inventory incl. `evaluation_runtime`). Not committed yet.

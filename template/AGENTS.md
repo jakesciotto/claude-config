@@ -11,15 +11,15 @@ High-level map of this repository for AI agents. Behavioral rules live in `.clau
 ├── hooks/
 ├── plans/
 ├── project/
-│   ├── ARCHITECTURE.md
-│   ├── CAPABILITIES.md
-│   ├── CHANGELOG.md
-│   ├── MEMORY.md
-│   ├── TESTING.md
-│   └── TODO.md
+│   ├── architecture.md
+│   ├── capabilities.md
+│   ├── changelog.md
+│   ├── memory.md
+│   ├── testing.md
+│   └── todo.md
 ├── rules/
-│   ├── REPOSITORY.md
-│   └── WORKFLOW.md
+│   ├── repository.md
+│   └── workflow.md
 └── skills/
 ```
 
@@ -27,11 +27,11 @@ High-level map of this repository for AI agents. Behavioral rules live in `.clau
 
 | File                    | Description                               |
 |-------------------------|-------------------------------------------|
-| project/ARCHITECTURE.md | Project architecture                      |
-| project/CHANGELOG.md    | Changelog                                 |
-| project/MEMORY.md       | Project-specific lessons and learnings    |
-| project/TESTING.md      | Testing strategy                          |
-| project/CAPABILITIES.md | Project capabilities                      |
-| project/TODO.md         | To-dos captured at the project level      |
-| rules/REPOSITORY.md     | Code style and repository-level decisions |
-| rules/WORKFLOW.md       | Explicit workflow definition and process  |
+| project/architecture.md | Project architecture                      |
+| project/changelog.md    | Changelog                                 |
+| project/memory.md       | Project-specific lessons and learnings    |
+| project/testing.md      | Testing strategy                          |
+| project/capabilities.md | Project capabilities                      |
+| project/todo.md         | To-dos captured at the project level      |
+| rules/repository.md     | Code style and repository-level decisions |
+| rules/workflow.md       | Explicit workflow definition and process  |

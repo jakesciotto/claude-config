@@ -1,4 +1,4 @@
-# REPOSITORY.md
+# repository.md
 
 ## Rules
 

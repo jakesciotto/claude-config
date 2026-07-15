@@ -11,3 +11,6 @@ global/commands-archive/
 # references: track the dir, never the contents (may hold customer data / PII)
 global/references/*
 !global/references/.gitkeep
+
+# posthog-internal skills/material (internal table names, customer-adjacent queries)
+posthog/

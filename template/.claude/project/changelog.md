@@ -1,4 +1,4 @@
-# CHANGELOG.md
+# changelog.md
 
 ## Change Categories
 

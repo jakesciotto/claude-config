@@ -1,4 +1,4 @@
-# WORKFLOW.md
+# workflow.md
 
 ### 1. Plan Node
 
@@ -20,7 +20,7 @@ Subagents and the Workflow/ultracode tool burn tokens fast. Use only when they p
 
 ### 3. Self-Improvement Loop
 
-- After ANY correction from the user: update `.claude/project/MEMORY.md` with the pattern
+- After ANY correction from the user: update `.claude/project/memory.md` with the pattern
 - Write rules for yourself that prevent the same mistake
 - Ruthlessly iterate on these lessons until mistake rate drops
 - Review memory at session start for relevant project
@@ -48,13 +48,13 @@ Subagents and the Workflow/ultracode tool burn tokens fast. Use only when they p
 
 ## Task Management
 
-1. **Plan First**: Write plan to `.claude/project/TODO.md` with checkable items
+1. **Plan First**: Write plan to `.claude/project/todo.md` with checkable items
 2. **Verify Plan**: Check in before starting implementation; do not make any `git` commits yourself
-3. **Track Progress**: Mark items complete as you go in `.claude/project/TODO.md`
+3. **Track Progress**: Mark items complete as you go in `.claude/project/todo.md`
 4. **Explain Changes**: Output succinct high-level summary at each step
-5. **Document Results**: Add review section to `.claude/project/TODO.md`a
-6. **Capture Lessons**: Update `.claude/project/MEMORY.md` after corrections
+5. **Document Results**: Add review section to `.claude/project/todo.md`a
+6. **Capture Lessons**: Update `.claude/project/memory.md` after corrections
 7. **Track Changes**:
-   7a. Update `.claude/project/CHANGELOG.md` after work is finished and confirmed finished by the user
-   7b. If architecture changes were made, update `.claude/project/ARCHITECTURE.md`
-   7c. If `.claude/project/TODO.md` starts to exceed 500 lines, move the finished items to `.claude/plans/DONE.md`
+   7a. Update `.claude/project/changelog.md` after work is finished and confirmed finished by the user
+   7b. If architecture changes were made, update `.claude/project/architecture.md`
+   7c. If `.claude/project/todo.md` starts to exceed 500 lines, move the finished items to `.claude/plans/done.md`

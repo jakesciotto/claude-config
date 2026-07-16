@@ -8,16 +8,14 @@
       "Read(*)",
       "Edit(*)",
       "Write(*)",
+      "TodoWrite(*)",
+      "TaskOutput(*)",
+      "TaskStop(*)",
       "NotebookEdit(*)",
-      "mcp__claude_ai_PostHog__exec",
-      "mcp__vitally__search_accounts",
-      "mcp__vitally__health_check",
-      "mcp__vitally__find_account_by_name"
+      "WebSearch(*)",
+      "mcp__claude_ai_PostHog__exec"
     ],
-    "deny": [
-      "Bash(rm -rf:*)",
-      "Bash(rm -fr:*)"
-    ],
+    "deny": ["Bash(rm -rf:*)", "Bash(rm -fr:*)"],
     "ask": [
       "Bash(sudo:*)",
       "Bash(chmod 777:*)",
@@ -38,11 +36,7 @@
       "Read(**/*.pem)",
       "Read(**/*.key)",
       "Glob(*)",
-      "Grep(*)",
-      "WebSearch(*)",
-      "TodoWrite(*)",
-      "TaskOutput(*)",
-      "TaskStop(*)"
+      "Grep(*)"
     ]
   },
   "hooks": {

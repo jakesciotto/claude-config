@@ -3,19 +3,24 @@
     "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
     "OTEL_METRICS_EXPORTER": "otlp",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
-    "OTEL_METRIC_EXPORT_INTERVAL": "30000"
+    "OTEL_METRIC_EXPORT_INTERVAL": "30000",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8"
   },
   "permissions": {
     "allow": [
       "Read(*)",
       "Edit(*)",
       "Write(*)",
+      "NotebookEdit(*)",
+      "mcp__claude_ai_PostHog__exec",
+      "mcp__vitally__search_accounts",
+      "mcp__vitally__health_check",
+      "mcp__vitally__find_account_by_name",
       "TodoWrite(*)",
       "TaskOutput(*)",
       "TaskStop(*)",
-      "NotebookEdit(*)",
-      "WebSearch(*)",
-      "mcp__claude_ai_PostHog__exec"
+      "WebSearch(*)"
     ],
     "deny": [
       "Bash(rm -rf:*)",
@@ -73,17 +78,17 @@
     "command": "/usr/bin/python3 \"$HOME/.claude/scripts/statusline-usage.py\""
   },
   "enabledPlugins": {
-    "frontend-design@claude-plugins-official": false,
+    "frontend-design@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true,
-    "code-review@claude-plugins-official": false,
-    "code-simplifier@claude-plugins-official": false,
-    "feature-dev@claude-plugins-official": false,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
     "claude-code-setup@claude-plugins-official": false,
     "posthog@claude-plugins-official": false,
     "caveman@caveman": true,
-    "todoist@doist": false,
+    "todoist@doist": true,
     "supabase@claude-plugins-official": true,
     "vercel@claude-plugins-official": true,
     "hogpilot@hogpilot": true
@@ -114,7 +119,7 @@
       }
     }
   },
-  "effortLevel": "high",
+  "effortLevel": "xhigh",
   "awaySummaryEnabled": false,
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,

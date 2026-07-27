@@ -14,3 +14,7 @@ global/references/*
 
 # posthog-internal skills/material (internal table names, customer-adjacent queries)
 posthog/
+
+# python bytecode
+__pycache__/
+*.pyc

@@ -124,7 +124,7 @@ def justify(left, right):
 def model_label(data):
     model = data.get("model") or {}
     name = model.get("display_name") or model.get("id") or "?"
-    return name.replace(" context", "")
+    return name.replace(" context", "").lower()
 
 
 def main():
@@ -155,7 +155,7 @@ def main():
 
     right_parts = [c(model_label(data), "35")]  # magenta
     if effort:
-        right_parts.append(c(effort, "90"))
+        right_parts.append(c(effort, "31"))
     if data.get("fast_mode"):
         right_parts.append(c("fast", "36"))
     right = f" {sep} ".join(right_parts)

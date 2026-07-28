@@ -50,6 +50,11 @@
     ],
     "defaultMode": "auto"
   },
+  "skillOverrides": {
+    "user-deep-dive": "off",
+    "posthog-debugger": "off",
+    "posthog-survey-creator": "off"
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -120,16 +125,11 @@
     }
   },
   "effortLevel": "xhigh",
+  "promptSuggestionEnabled": false,
   "awaySummaryEnabled": false,
   "tui": "fullscreen",
   "skipWorkflowUsageWarning": true,
   "preferredNotifChannel": "notifications_disabled",
   "switchModelsOnFlag": false,
-  "agentPushNotifEnabled": true,
-  "promptSuggestionEnabled": false,
-  "skillOverrides": {
-    "user-deep-dive": "off",
-    "posthog-debugger": "off",
-    "posthog-survey-creator": "off"
-  }
+  "agentPushNotifEnabled": true
 }

@@ -18,3 +18,6 @@ posthog/
 # python bytecode
 __pycache__/
 *.pyc
+
+# local-only design specs and plans
+.claude/plans/

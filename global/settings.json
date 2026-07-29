@@ -3,9 +3,7 @@
     "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
     "OTEL_METRICS_EXPORTER": "otlp",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
-    "OTEL_METRIC_EXPORT_INTERVAL": "30000",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8"
+    "OTEL_METRIC_EXPORT_INTERVAL": "30000"
   },
   "permissions": {
     "allow": [
@@ -73,6 +71,10 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/session-summary.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/session-decisions.sh"
           }
         ]
       }
@@ -124,7 +126,7 @@
       }
     }
   },
-  "effortLevel": "xhigh",
+  "effortLevel": "medium",
   "promptSuggestionEnabled": false,
   "awaySummaryEnabled": false,
   "tui": "fullscreen",

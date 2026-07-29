@@ -7,8 +7,11 @@
 
 set -euo pipefail
 
-# Re-entry guard: claude -p below also triggers SessionEnd. Exit immediately if already running.
-[ -n "${CLAUDE_SUMMARY_RUNNING:-}" ] && exit 0
+# Re-entry guard: claude -p below also triggers SessionEnd, which fires this hook AND
+# session-decisions.sh. Exit if either headless extraction is already in flight, or they recurse.
+if [ -n "${CLAUDE_SUMMARY_RUNNING:-}" ] || [ -n "${CLAUDE_DECISIONS_RUNNING:-}" ]; then
+  exit 0
+fi
 
 PAYLOAD=$(cat)
 ENV_FILE="$HOME/.claude/hooks/.session-summary.env"

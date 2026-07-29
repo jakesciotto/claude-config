@@ -27,13 +27,12 @@ Deprecated commands live in `global/commands-archive/` (gitignored, outside the 
 
 _Copied into a project's `.claude/` to seed structure. Tracked locally in a `.gitignored` `projects/` folder so per-project changes can be diffed._
 
-- `CLAUDE.md` → project behavioral rules.
-- `AGENTS.md` → directory map and where-to-find-information.
+- `CLAUDE.md` → project behavioral rules, the where-to-find-information map, and auto-update triggers. Sole entry point; there is no separate `AGENTS.md`.
 - `agents/`, `hooks/`, `skills/` → project-scoped extensions.
 - `plans/`
   - `done.md` → finished tasks moved out of `project/todo.md` once it grows large.
 - `project/` → main project-specific docs:
-  - `architecture.md`, `capabilities.md`, `changelog.md`, `memory.md`, `testing.md`, `todo.md`
+  - `architecture.md`, `capabilities.md`, `changelog.md`, `decisions.md`, `memory.md`, `testing.md`, `todo.md`
 - `rules/` → project rules that override global settings:
   - `repository.md`, `workflow.md`
 
@@ -56,9 +55,9 @@ _Copied into a project's `.claude/` to seed structure. Tracked locally in a `.gi
 │       ├── memory-profile.md
 │       ├── memory-preferences.md
 │       ├── memory-decisions.md
+│       ├── memory-technical.md
 │       └── memory-sessions.md
 └── template
-    ├── AGENTS.md
     └── .claude
         ├── CLAUDE.md
         ├── agents/
@@ -70,6 +69,7 @@ _Copied into a project's `.claude/` to seed structure. Tracked locally in a `.gi
         │   ├── architecture.md
         │   ├── capabilities.md
         │   ├── changelog.md
+        │   ├── decisions.md
         │   ├── memory.md
         │   ├── testing.md
         │   └── todo.md

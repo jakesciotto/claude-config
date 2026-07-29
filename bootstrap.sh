@@ -27,6 +27,8 @@ link "global/commands"                           "commands"
 link "global/scripts"                            "scripts"
 link "global/CLAUDE.md"                          "CLAUDE.md"
 link "template/.claude/hooks/auto-trust-folder.sh" "hooks/auto-trust-folder.sh"
+link "template/.claude/hooks/session-summary.sh"   "hooks/session-summary.sh"
+link "template/.claude/hooks/session-decisions.sh" "hooks/session-decisions.sh"
 
 # Memory rules are live machine state, not symlinks: the repo holds bootstrap
 # templates in global/rules/, seeded once per machine and never clobbered.

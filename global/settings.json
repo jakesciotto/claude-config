@@ -85,19 +85,20 @@
     "command": "/usr/bin/python3 \"$HOME/.claude/scripts/statusline-usage.py\""
   },
   "enabledPlugins": {
-    "frontend-design@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "feature-dev@claude-plugins-official": true,
+    "code-review@claude-plugins-official": false,
+    "code-simplifier@claude-plugins-official": false,
+    "feature-dev@claude-plugins-official": false,
     "claude-md-management@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": false,
     "claude-code-setup@claude-plugins-official": false,
     "posthog@claude-plugins-official": false,
+    "typescript-lsp@claude-plugins-official": false,
     "caveman@caveman": true,
-    "todoist@doist": true,
+    "todoist@doist": false,
     "supabase@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true,
+    "vercel@claude-plugins-official": false,
     "hogpilot@hogpilot": true
   },
   "extraKnownMarketplaces": {
@@ -126,7 +127,7 @@
       }
     }
   },
-  "effortLevel": "medium",
+  "effortLevel": "xhigh",
   "promptSuggestionEnabled": false,
   "awaySummaryEnabled": false,
   "tui": "fullscreen",

@@ -19,7 +19,7 @@ _Symlinked into `~/.claude` by `bootstrap.sh`, except `rules/` (seeded copy)._
 - `scripts/` → e.g. `statusline-usage.py`.
 - `references/` → reference material loaded on demand.
 - `agents/` → global agents. _Empty; reserved for future agents._
-- `skills/` → global skills.
+- `skills/` → global skills. **This repo is public**: anything referencing internal PostHog tables, customer names, or book data goes in the gitignored `posthog/` folder instead, symlinked per-skill into `~/.claude/skills/` by `bootstrap.sh`.
 
 Deprecated commands live in `global/commands-archive/` (gitignored, outside the loaded command tree, kept locally for reference).
 

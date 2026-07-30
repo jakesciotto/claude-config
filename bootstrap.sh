@@ -30,6 +30,14 @@ link "template/.claude/hooks/auto-trust-folder.sh" "hooks/auto-trust-folder.sh"
 link "template/.claude/hooks/session-summary.sh"   "hooks/session-summary.sh"
 link "template/.claude/hooks/session-decisions.sh" "hooks/session-decisions.sh"
 
+# PostHog-internal skills live in the gitignored posthog/ folder (internal table
+# names and customer-adjacent queries stay out of git - this repo is public), so
+# they are linked per-skill rather than via the global/skills tree. On a fresh
+# clone posthog/ does not exist and link() skips these cleanly.
+mkdir -p "$CLAUDE_DIR/skills"
+link "posthog/catchup"                             "skills/catchup"
+link "posthog/ff-pitfall-scan"                     "skills/ff-pitfall-scan"
+
 # Memory rules are live machine state, not symlinks: the repo holds bootstrap
 # templates in global/rules/, seeded once per machine and never clobbered.
 seed_rules() {

@@ -75,6 +75,18 @@ extract() {
     return 0
   fi
 
+  # Gate out headless runs. The CLAUDE_*_RUNNING guards above only cover the two hooks
+  # we own; any third-party SessionEnd hook that shells out to `claude -p` (hogpilot's
+  # capture hook does) spawns a transcript this hook would then ingest as a real session.
+  # entrypoint is read off the transcript, so it holds regardless of who spawned it.
+  # Interactive runs report "cli", headless ones "sdk-cli"; missing is treated as headless
+  # (fail safe - skipping costs one session, recursing pollutes the table).
+  entrypoint=$(jq -rs 'map(.entrypoint // empty) | first // ""' "$transcript_path" 2>/dev/null || echo "")
+  if [ "$entrypoint" != "cli" ]; then
+    echo "$(date -u +%FT%TZ) headless transcript, skipping ($session_id, entrypoint=${entrypoint:-none})"
+    return 0
+  fi
+
   project=$(basename "${cwd:-unknown}")
 
   # Flatten user/assistant text turns into plain conversation text (same shape as session-summary.sh).

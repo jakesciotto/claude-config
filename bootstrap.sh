@@ -38,6 +38,24 @@ mkdir -p "$CLAUDE_DIR/skills"
 link "posthog/catchup"                             "skills/catchup"
 link "posthog/ff-pitfall-scan"                     "skills/ff-pitfall-scan"
 
+# Both SessionEnd hooks source this env file for Supabase creds. It is never in git,
+# so on a fresh machine the hooks find nothing, log "no env file, skipping" and exit 0 -
+# a silent no-op with no signal that anything is missing. Seed a stub and say so.
+seed_hook_env() {
+    local f="$CLAUDE_DIR/hooks/.session-summary.env"
+    if [ -f "$f" ]; then
+        echo "kept (live): $f"
+        return
+    fi
+    cat >"$f" <<'EOF'
+SUPABASE_URL=https://jselgaytmwlstuuhrwzj.supabase.co
+SUPABASE_SERVICE_KEY=
+EOF
+    chmod 600 "$f"
+    echo "ACTION REQUIRED: set SUPABASE_SERVICE_KEY in $f - session-summary and session-decisions no-op until then" >&2
+}
+seed_hook_env
+
 # Memory rules are live machine state, not symlinks: the repo holds bootstrap
 # templates in global/rules/, seeded once per machine and never clobbered.
 seed_rules() {

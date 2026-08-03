@@ -32,6 +32,15 @@ CLAUDE_BIN="$HOME/.local/bin/claude"
 
   [ -n "$transcript_path" ] && [ -f "$transcript_path" ] || { echo "$(date -u +%FT%TZ) no transcript ($session_id)"; exit 0; }
 
+  # Gate out headless runs. The CLAUDE_*_RUNNING guards above only cover the two hooks
+  # we own; any third-party SessionEnd hook that shells out to `claude -p` (hogpilot's
+  # capture hook does) spawns a transcript this hook would then summarize as a real
+  # session. entrypoint is read off the transcript, so it holds regardless of who spawned
+  # it. Interactive runs report "cli", headless ones "sdk-cli"; missing is treated as
+  # headless (fail safe - skipping costs one session, recursing pollutes the table).
+  entrypoint=$(jq -rs 'map(.entrypoint // empty) | first // ""' "$transcript_path" 2>/dev/null || echo "")
+  [ "$entrypoint" = "cli" ] || { echo "$(date -u +%FT%TZ) headless transcript, skipping ($session_id, entrypoint=${entrypoint:-none})"; exit 0; }
+
   project=$(basename "${cwd:-unknown}")
   msg_count=$(wc -l <"$transcript_path" | tr -d ' ')
 

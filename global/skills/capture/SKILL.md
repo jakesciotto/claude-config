@@ -1,6 +1,8 @@
 ---
+name: capture
 description: Pull Todoist Inbox into Obsidian Inbox.md (one-way), then clear Todoist. Todoist is a capture funnel only.
 argument-hint: ""
+disable-model-invocation: true
 ---
 
 You are running capture for Jake. **One-way: Todoist Inbox → Obsidian. Todoist never stores tasks long-term.**
@@ -20,7 +22,7 @@ You are running capture for Jake. **One-way: Todoist Inbox → Obsidian. Todoist
    Omit fields that don't apply. **Do not** add a `[tier::]` (Jake triages that). No Todoist id comment.
 3. **Clear from Todoist:** `mcp__todoist__complete-tasks` for each captured id (removes it from Inbox; recoverable in Todoist's completed log). This keeps Todoist a pure funnel.
 4. **Report:** `Captured N item(s) to Inbox.md; cleared from Todoist.` If Inbox empty: `Todoist Inbox empty — nothing to capture.`
-5. **Log** (`_shared/supabase-logging.md`): `command='capture'`, `scope='inbox'`, `status='applied'`, `applied_counts={captured:N}`. Non-blocking.
+5. **Log** (`${CLAUDE_SKILL_DIR}/references/supabase-logging.md`): `command='capture'`, `scope='inbox'`, `status='applied'`, `applied_counts={captured:N}`. Non-blocking.
 
 ## Behavior
 - Touches **only** the Todoist Inbox. Never reads/writes other Todoist projects.

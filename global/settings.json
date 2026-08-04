@@ -42,29 +42,14 @@
       "Read(**/*credential*)",
       "Read(**/*secret*)",
       "Read(**/*.pem)",
-      "Read(**/*.key)",
-      "Glob(*)",
-      "Grep(*)"
+      "Read(**/*.key)"
     ],
     "defaultMode": "auto"
   },
   "skillOverrides": {
-    "user-deep-dive": "off",
-    "posthog-debugger": "off",
-    "posthog-survey-creator": "off"
+    "user-deep-dive": "off"
   },
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/auto-trust-folder.sh"
-          }
-        ]
-      }
-    ],
     "SessionEnd": [
       {
         "hooks": [
@@ -127,6 +112,7 @@
       }
     }
   },
+  "autoMemoryDirectory": "~/.claude/memory",
   "effortLevel": "xhigh",
   "promptSuggestionEnabled": false,
   "awaySummaryEnabled": false,

@@ -23,6 +23,13 @@ if [ "${1:-}" = "--dry-run" ]; then DRY_RUN=1; fi
 PAYLOAD=$(cat)
 ENV_FILE="$HOME/.claude/hooks/.session-summary.env"
 LOG="$HOME/.claude/hooks/session-decisions.log"
+
+# Keep the tail only. An append-only hook log in ~/.claude grows unbounded and
+# nothing else prunes it.
+if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" | tr -d ' ')" -gt 262144 ]; then
+  tail -c 131072 "$LOG" >"$LOG.tmp" && mv -f "$LOG.tmp" "$LOG"
+fi
+
 CLAUDE_BIN="$HOME/.local/bin/claude"
 MODEL="claude-sonnet-5"
 

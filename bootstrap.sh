@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # Set up this machine's ~/.claude config from the claude-config repo.
 # Idempotent: safe to re-run. Re-links symlinks, patches folder-trust state.
+#
+#   ./bootstrap.sh          install / re-link
+#   ./bootstrap.sh --diff   report drift between the repo's rule templates and live rules
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 
-mkdir -p "$CLAUDE_DIR/hooks"
+# Rule templates that ship real content, so template-vs-live drift is a defect.
+# The rest are blank skeletons and are expected to diverge as live memory grows.
+CONTENT_RULES=(memory-profile.md memory-preferences.md)
 
 # repo path -> install path (relative to $CLAUDE_DIR)
 link() {
@@ -15,28 +20,67 @@ link() {
         echo "skip (missing source): $1" >&2
         return
     fi
+    # ln -sfn only replaces a dest that is a file or a symlink. Against a real
+    # directory it silently creates the link *inside* it, which is how
+    # ~/.claude/skills/skills existed for months while global/skills never loaded.
+    if [ -d "$dest" ] && [ ! -L "$dest" ]; then
+        echo "REFUSING: $dest is a real directory, not a symlink - would nest. Use link_children." >&2
+        return 1
+    fi
     ln -sfn "$src" "$dest"
     echo "linked: $dest -> $src"
 }
 
-link "global/settings.json"                      "settings.json"
-link "global/agents"                             "agents"
-link "global/skills"                             "skills"
-link "global/references"                         "references"
-link "global/commands"                           "commands"
-link "global/scripts"                            "scripts"
-link "global/CLAUDE.md"                          "CLAUDE.md"
-link "template/.claude/hooks/auto-trust-folder.sh" "hooks/auto-trust-folder.sh"
-link "template/.claude/hooks/session-summary.sh"   "hooks/session-summary.sh"
-link "template/.claude/hooks/session-decisions.sh" "hooks/session-decisions.sh"
+# Symlink each child of a repo dir into a real dest dir. Use when the dest must
+# stay a real directory because other tools drop entries there (skills, hooks).
+# Pass --skills-only to link just the children that are actual skills, so a
+# loose reference doc sitting in the source dir is not published as one.
+link_children() {
+    local srcdir="$REPO/$1" destdir="$CLAUDE_DIR/$2" mode="${3:-}" child name
+    if [ ! -d "$srcdir" ]; then
+        echo "skip (missing source dir): $1" >&2
+        return
+    fi
+    mkdir -p "$destdir"
+    shopt -s nullglob
+    for child in "$srcdir"/*; do
+        name="$(basename "$child")"
+        case "$name" in .*|.gitkeep) continue ;; esac
+        if [ "$mode" = "--skills-only" ] && [ ! -f "$child/SKILL.md" ]; then
+            echo "skip (not a skill): $1/$name"
+            continue
+        fi
+        ln -sfn "$child" "$destdir/$name"
+        echo "linked: $destdir/$name -> $child"
+    done
+    shopt -u nullglob
+}
+
+install_all() {
+
+link "global/settings.json" "settings.json"
+link "global/agents"        "agents"
+link "global/references"    "references"
+link "global/commands"      "commands"
+link "global/scripts"       "scripts"
+link "global/CLAUDE.md"     "CLAUDE.md"
+
+# skills/ and hooks/ stay real directories: marketplace plugins and hook state
+# files live alongside the repo's entries, so the tree cannot be one symlink.
+link_children "global/skills" "skills" --skills-only
+link_children "global/hooks"  "hooks"
 
 # PostHog-internal skills live in the gitignored posthog/ folder (internal table
-# names and customer-adjacent queries stay out of git - this repo is public), so
-# they are linked per-skill rather than via the global/skills tree. On a fresh
-# clone posthog/ does not exist and link() skips these cleanly.
-mkdir -p "$CLAUDE_DIR/skills"
-link "posthog/catchup"                             "skills/catchup"
-link "posthog/ff-pitfall-scan"                     "skills/ff-pitfall-scan"
+# names and customer-adjacent queries stay out of git - this repo is public).
+# NOTE: gitignored means posthog/ has no remote. It survives a machine loss only
+# if you give it its own private repo. A fresh clone gets none of these skills.
+if [ -d "$REPO/posthog" ]; then
+    link_children "posthog" "skills" --skills-only
+else
+    echo "ACTION REQUIRED: $REPO/posthog is absent - all PostHog-internal skills are missing on this machine" >&2
+fi
+
+}
 
 # Both SessionEnd hooks source this env file for Supabase creds. It is never in git,
 # so on a fresh machine the hooks find nothing, log "no env file, skipping" and exit 0 -
@@ -54,7 +98,6 @@ EOF
     chmod 600 "$f"
     echo "ACTION REQUIRED: set SUPABASE_SERVICE_KEY in $f - session-summary and session-decisions no-op until then" >&2
 }
-seed_hook_env
 
 # Memory rules are live machine state, not symlinks: the repo holds bootstrap
 # templates in global/rules/, seeded once per machine and never clobbered.
@@ -72,11 +115,43 @@ seed_rules() {
         fi
     done
 }
-seed_rules
+
+# Seed-if-missing means a content-carrying template can rot for months while the
+# live file moves on, and a fresh machine then gets the stale copy. Nothing
+# surfaces that by itself, so make it an explicit check.
+diff_rules() {
+    local rc=0 f live name
+    echo "content-carrying templates (drift here is a defect):"
+    for name in "${CONTENT_RULES[@]}"; do
+        f="$REPO/global/rules/$name"; live="$CLAUDE_DIR/rules/$name"
+        if [ ! -f "$f" ] || [ ! -f "$live" ]; then
+            echo "  MISSING  $name"; rc=1; continue
+        fi
+        if diff -q "$f" "$live" >/dev/null; then
+            echo "  ok       $name"
+        else
+            echo "  DRIFTED  $name"
+            diff -u "$f" "$live" | sed 's/^/           /'
+            rc=1
+        fi
+    done
+    echo
+    echo "skeleton templates (divergence expected, sizes for reference):"
+    for f in "$REPO"/global/rules/*.md; do
+        name="$(basename "$f")"
+        case " ${CONTENT_RULES[*]} " in *" $name "*) continue ;; esac
+        live="$CLAUDE_DIR/rules/$name"
+        printf "  %-24s template=%6s live=%6s\n" "$name" \
+            "$(wc -c <"$f" | tr -d ' ')" "$(wc -c <"$live" 2>/dev/null | tr -d ' ' || echo NA)"
+    done
+    return $rc
+}
 
 # Folder-trust lives in live machine state (~/.claude.json), NOT a symlink:
 # the file holds the project list and account data and must stay local.
-# Pre-accept the trust gate for $HOME so launches don't prompt.
+# Pre-accept the trust gate for $HOME so launches don't prompt. Note: the docs
+# say trust for a session started in the home directory is held for that session
+# only and is not written to disk, so this may be inert for $HOME specifically.
 trust_home() {
     local f="$HOME/.claude.json"
     command -v jq >/dev/null || { echo "jq not found; skipping trust patch" >&2; return; }
@@ -85,6 +160,15 @@ trust_home() {
         && mv -f "$f.tmp" "$f"
     echo "trusted folder: $HOME"
 }
+
+if [ "${1:-}" = "--diff" ]; then
+    diff_rules
+    exit $?
+fi
+
+install_all
+seed_hook_env
+seed_rules
 trust_home
 
 echo "done. restart any running Claude Code session to load."

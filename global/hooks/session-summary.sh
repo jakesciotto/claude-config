@@ -16,6 +16,13 @@ fi
 PAYLOAD=$(cat)
 ENV_FILE="$HOME/.claude/hooks/.session-summary.env"
 LOG="$HOME/.claude/hooks/session-summary.log"
+
+# Keep the tail only. An append-only hook log in ~/.claude grows unbounded and
+# nothing else prunes it.
+if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" | tr -d ' ')" -gt 262144 ]; then
+  tail -c 131072 "$LOG" >"$LOG.tmp" && mv -f "$LOG.tmp" "$LOG"
+fi
+
 CLAUDE_BIN="$HOME/.local/bin/claude"
 
 # Background everything; return control to the harness immediately.

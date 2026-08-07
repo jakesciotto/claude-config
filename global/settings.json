@@ -2,6 +2,8 @@
   "env": {
     "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
     "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_LOG_TOOL_DETAILS": "1",
     "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
     "OTEL_METRIC_EXPORT_INTERVAL": "30000"
   },
@@ -60,6 +62,10 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/session-decisions.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/session-critic.sh"
           }
         ]
       }
@@ -84,7 +90,8 @@
     "todoist@doist": false,
     "supabase@claude-plugins-official": true,
     "vercel@claude-plugins-official": false,
-    "hogpilot@hogpilot": true
+    "hogpilot@hogpilot": false,
+    "impersonation-toolkit@PostHog-skills": true
   },
   "extraKnownMarketplaces": {
     "PostHog-skills": {
@@ -109,14 +116,15 @@
       "source": {
         "source": "directory",
         "path": "/Users/jakesciotto/github/hogpilot"
-      }
+      },
+      "autoUpdate": true
     }
   },
-  "autoMemoryDirectory": "~/.claude/memory",
   "effortLevel": "xhigh",
   "promptSuggestionEnabled": false,
   "awaySummaryEnabled": false,
   "tui": "fullscreen",
+  "autoMemoryDirectory": "~/.claude/memory",
   "skipWorkflowUsageWarning": true,
   "preferredNotifChannel": "notifications_disabled",
   "switchModelsOnFlag": false,

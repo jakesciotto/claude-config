@@ -41,6 +41,13 @@ link_children() {
         echo "skip (missing source dir): $1" >&2
         return
     fi
+    # Migrate an old whole-dir symlink. With dest -> srcdir, the ln below
+    # resolves through it and writes self-symlinks INSIDE the repo
+    # (global/skills/capture/capture, seen on fedora 2026-08-06).
+    if [ -L "$destdir" ]; then
+        rm "$destdir"
+        echo "migrated: $destdir symlink removed, will be a real dir"
+    fi
     mkdir -p "$destdir"
     shopt -s nullglob
     for child in "$srcdir"/*; do
@@ -147,6 +154,32 @@ diff_rules() {
     return $rc
 }
 
+# Telemetry endpoint and host name are machine-local (settings.local.json). A
+# box missing them still exports - to localhost:4317, silently dropping every
+# metric, and series without host.name legend as bare "Value" in Grafana.
+# Seed a stub on fresh machines, validate existing ones.
+seed_settings_local() {
+    local f="$CLAUDE_DIR/settings.local.json"
+    if [ -f "$f" ]; then
+        grep -q '"OTEL_EXPORTER_OTLP_ENDPOINT"' "$f" \
+            || echo "ACTION REQUIRED: no OTLP endpoint in $f - metrics fall back to localhost:4317 and drop silently" >&2
+        grep -q 'host\.name=' "$f" \
+            || echo "ACTION REQUIRED: no host.name in $f - series legend as bare Value in Grafana" >&2
+        echo "kept (live): $f"
+        return
+    fi
+    local box="${CLAUDE_BOX:-$(hostname -s)}"
+    cat >"$f" <<EOF
+{
+  "env": {
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://100.70.246.68:4317",
+    "OTEL_RESOURCE_ATTRIBUTES": "host.name=$box"
+  }
+}
+EOF
+    echo "seeded: $f (host.name=$box from hostname - Macs get DHCP-renamed, verify it is the fleet name)"
+}
+
 # Folder-trust lives in live machine state (~/.claude.json), NOT a symlink:
 # the file holds the project list and account data and must stay local.
 # Pre-accept the trust gate for $HOME so launches don't prompt. Note: the docs
@@ -169,6 +202,7 @@ fi
 install_all
 seed_hook_env
 seed_rules
+seed_settings_local
 trust_home
 
 echo "done. restart any running Claude Code session to load."

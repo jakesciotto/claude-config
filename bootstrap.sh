@@ -84,7 +84,7 @@ link_children "global/hooks"  "hooks"
 if [ -d "$REPO/posthog" ]; then
     link_children "posthog" "skills" --skills-only
 else
-    echo "ACTION REQUIRED: $REPO/posthog is absent - all PostHog-internal skills are missing on this machine" >&2
+    echo "note: $REPO/posthog absent - PostHog-internal skills live only on the work laptop (m5pro)" >&2
 fi
 
 }

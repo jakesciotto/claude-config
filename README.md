@@ -4,7 +4,7 @@ Global Claude Code settings and a project template, for rolling out and maintain
 
 `bootstrap.sh` installs into `~/.claude` (idempotent; safe to re-run). `./bootstrap.sh --diff` is read-only and reports drift between the repo's rule templates and the live files.
 
-**This repo is public.** Anything referencing internal PostHog tables, customer names, or book data goes in the gitignored `posthog/` folder, never in `global/`.
+**This repo is public.** Anything referencing internal PostHog tables, customer names, or book data never goes in it: PostHog-internal skills live as real directories in `~/.claude/skills/` on the work laptop, machine-local state outside git entirely.
 
 ## How install works
 
@@ -98,5 +98,5 @@ A changelog and a capabilities file were dropped from the template: git log and 
 
 ## Known gaps
 
-- `posthog/` is gitignored and has no remote, so `catchup`, `ff-pitfall-scan`, `hogql-gotchas`, `posthog-onboarding`, `workload-analysis`, and `user-deep-dive` exist only on this machine. Verified 2026-08-04: none of the six is in any registered marketplace, and the PostHog MCP serves tools, not skills, so there is no recovery path other than rewriting them. `bootstrap.sh` says so loudly on a fresh clone. Accepted risk; giving `posthog/` its own private repo is the fix if that changes.
+- The PostHog-internal skills (`catchup`, `cs-issue-response`, `ff-pitfall-scan`, `hogql-gotchas`, `posthog-onboarding`, `source-tracker-sync`, `user-deep-dive`, `workload-analysis`) are real dirs in `~/.claude/skills/` on the work laptop only - no remote, no marketplace copy (verified 2026-08-04), no recovery path beyond whatever backup covers `~/.claude`. Accepted risk.
 - `~/.claude/settings.local.json` is deliberately per-machine: its `env` block points telemetry at the home LLM gateway over Tailscale (`100.70.246.68`, `host.name=m5pro`), which is correct to keep untracked and machine-local. The other ~36 entries are portable, though: MCP permission grants, `enabledPlugins`, and UI preferences. On a new machine those cost 36 re-approvals. Moving the portable half into the tracked `global/settings.json` would fix that, at the cost of publishing internal MCP and skill *names* in a public repo. `enabledPlugins.hogpilot` is already duplicated between the two files.

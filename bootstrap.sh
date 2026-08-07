@@ -77,15 +77,10 @@ link "global/CLAUDE.md"     "CLAUDE.md"
 link_children "global/skills" "skills" --skills-only
 link_children "global/hooks"  "hooks"
 
-# PostHog-internal skills live in the gitignored posthog/ folder (internal table
-# names and customer-adjacent queries stay out of git - this repo is public).
-# NOTE: gitignored means posthog/ has no remote. It survives a machine loss only
-# if you give it its own private repo. A fresh clone gets none of these skills.
-if [ -d "$REPO/posthog" ]; then
-    link_children "posthog" "skills" --skills-only
-else
-    echo "note: $REPO/posthog absent - PostHog-internal skills live only on the work laptop (m5pro)" >&2
-fi
+# PostHog-internal skills (internal table names, customer-adjacent queries)
+# are NOT in this public repo: they live as real dirs in ~/.claude/skills/ on
+# the work laptop only, machine-local state like rules/. No remote, no backup
+# beyond whatever covers ~/.claude - a fresh machine gets none of them.
 
 }
 

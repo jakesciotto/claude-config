@@ -12,8 +12,6 @@ global/commands-archive/
 global/references/*
 !global/references/.gitkeep
 
-# posthog-internal skills/material (internal table names, customer-adjacent queries)
-posthog/
 
 # python bytecode
 __pycache__/

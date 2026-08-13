@@ -62,6 +62,16 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/ste100-style.sh"
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [
@@ -96,24 +106,16 @@
     "claude-code-setup@claude-plugins-official": false,
     "posthog@claude-plugins-official": false,
     "typescript-lsp@claude-plugins-official": false,
-    "caveman@caveman": true,
     "todoist@doist": false,
     "supabase@claude-plugins-official": true,
     "vercel@claude-plugins-official": false,
-    "hogpilot@hogpilot": false,
-    "impersonation-toolkit@PostHog-skills": true
+    "hogpilot@hogpilot": false
   },
   "extraKnownMarketplaces": {
     "PostHog-skills": {
       "source": {
         "source": "github",
         "repo": "PostHog/skills"
-      }
-    },
-    "caveman": {
-      "source": {
-        "source": "github",
-        "repo": "JuliusBrussee/caveman"
       }
     },
     "doist": {

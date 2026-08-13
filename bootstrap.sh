@@ -167,7 +167,7 @@ seed_settings_local() {
     cat >"$f" <<EOF
 {
   "env": {
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://100.70.246.68:4317",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://vinelab:4317",
     "OTEL_RESOURCE_ATTRIBUTES": "host.name=$box"
   }
 }

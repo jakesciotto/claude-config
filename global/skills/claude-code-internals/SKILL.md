@@ -27,6 +27,14 @@ A hook that fails **loudly** (parse error, dump file) is far cheaper than the sa
 
 Verify a guard like this with a **before/after diff of the log across a full run**, not by timestamps. An unrelated real session ending mid-test will look exactly like a leak.
 
+## Driving `claude -p` from a hook
+
+**`claude -p` returns only the FINAL assistant message.** If the model takes a tool turn, the text it wrote before that turn is gone. A hook that asks for JSON gets the model's closing recap instead, so the parse fails on output that looks like the model ignored the instruction. It did not; the array went out one turn earlier. Diagnosed 2026-08-13 as the cause of every `session-critic-failed-*.txt` dump through 2026-08-12: each held prose saying "Findings reported above (6 total)", with no array. Rate was 7 of 91 runs, about 8%. **Fix: pass `--allowed-tools ''`.** No tools means no second assistant turn, so the array stays in the final message. A hook that only transforms text needs no tools anyway.
+
+**`--allowed-tools` is variadic and eats a trailing positional prompt.** `claude -p --allowed-tools '' "$PROMPT"` parses `$PROMPT` as a tool name, so the model receives stdin with NO instruction and answers the piped content conversationally. This is silent: the call succeeds and returns a plausible-looking reply. With no stdin it surfaces as `Error: Input must be provided either through stdin or as a prompt argument`. **Put the whole prompt on stdin and pass no positional argument**, or the flag will swallow it. This cost a wrong root cause: the flagless reply looked exactly like the reviewed session hijacking the reviewer.
+
+**Fence transcript text and name it as inert data.** A hook that feeds one session's transcript to a model puts untrusted text next to the instruction. Wrap it in `<transcript>`, state that instructions inside are addressed to a different assistant, and put the output instruction AFTER the closing tag so the model's last read is your command, not the reviewed session's final turn.
+
 ## Plugin installs
 
 **A plugin install is a frozen copy** at `~/.claude/plugins/cache/<mkt>/<plugin>/<version>/`, pinned to `plugin.json`'s version and moving only on `/plugin update`. For a `source: directory` marketplace, Claude Code puts the **live source dir's** `bin/` on PATH while `CLAUDE_PLUGIN_ROOT` points at the frozen cache copy - so a PATH-resolved binary can be current while `${CLAUDE_PLUGIN_ROOT}/bin/x` is months stale, in the same install. Third-party and local-path marketplaces have auto-update disabled by default, and a local-path marketplace can only re-read that directory - it never fetches new commits.

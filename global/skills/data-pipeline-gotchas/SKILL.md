@@ -10,9 +10,11 @@ Each of these cost a wrong first attempt.
 
 ## PostgREST / Supabase
 
-**`Prefer: resolution=merge-duplicates` upserts on the PRIMARY KEY, not on your unique constraint.** If the PK is an auto-generated uuid never present in the payload, a re-run INSERTs duplicates and then trips the unique constraint. You must pass `?on_conflict=<cols>` on the URL. `session-summary.sh` has this latent bug, unbitten only because each session_id is new.
+**`Prefer: resolution=merge-duplicates` upserts on the PRIMARY KEY, not on your unique constraint.** If the PK is an auto-generated uuid never present in the payload, a re-run INSERTs duplicates and then trips the unique constraint. You must pass `?on_conflict=<cols>` on the URL. This stops being latent the moment anything re-writes an existing row. `session-summary.sh` carried the bug for months, because every live session_id is new; the first backfill of an existing row hit `23505` on all 34 rows. Fixed 2026-08-27 with `?on_conflict=session_id`.
 
 PostgREST writes only the columns in the payload, so a `created_at` default does not update on re-upsert - it reflects first capture.
+
+**`curl -sS` exits 0 on a 4xx, so `curl ... && echo "wrote row"` logs a success on every rejected write.** That is how the upsert bug above stayed invisible: the log said `wrote <id>` while PostgREST returned `23505` on the same line. Read the status code instead - `-w '\n%{http_code}'`, then branch on `200|201|204`. Use `-f` only if you also want the body discarded.
 
 Prefer an unconstrained text column over a CHECK constraint for any vocabulary an LLM populates. A check rejects an unseen value and fails the whole batch; keep the vocabulary in the prompt so it fails open.
 

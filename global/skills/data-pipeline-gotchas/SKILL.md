@@ -16,6 +16,8 @@ PostgREST writes only the columns in the payload, so a `created_at` default does
 
 **`curl -sS` exits 0 on a 4xx, so `curl ... && echo "wrote row"` logs a success on every rejected write.** That is how the upsert bug above stayed invisible: the log said `wrote <id>` while PostgREST returned `23505` on the same line. Read the status code instead - `-w '\n%{http_code}'`, then branch on `200|201|204`. Use `-f` only if you also want the body discarded.
 
+**An unknown key rejects the WHOLE row, so added columns share fate with the ones that already worked.** PostgREST answers `400 PGRST204 Could not find the '<key>' column ... in the schema cache` and writes nothing - not a partial row. So enriching an existing writer couples the new payload to the old one: if the schema ever lags the code, you lose the original record too, not just the new fields. Verified 2026-08-28 on `claude_sessions`, where the new token columns would otherwise have re-created the `(summary unavailable)` outage. Fix: build the base payload separately, post `base + extra`, and on a `400` retry once with `base` alone, logging which path ran. A schema mismatch then degrades the row instead of dropping it. Apply the migration before the writer ships, and note that `ADD COLUMN IF NOT EXISTS` makes the migration safe to re-run but does nothing for a writer that arrives first.
+
 Prefer an unconstrained text column over a CHECK constraint for any vocabulary an LLM populates. A check rejects an unseen value and fails the whole batch; keep the vocabulary in the prompt so it fails open.
 
 ## LLM output handling

@@ -16,6 +16,8 @@ fi
 PAYLOAD=$(cat)
 ENV_FILE="$HOME/.claude/hooks/.session-summary.env"
 LOG="$HOME/.claude/hooks/session-summary.log"
+# Overridable so a test run can target a scratch table instead of the real one.
+TABLE="${CLAUDE_SESSIONS_TABLE:-claude_sessions}"
 
 # Keep the tail only. An append-only hook log in ~/.claude grows unbounded and
 # nothing else prunes it.
@@ -38,6 +40,32 @@ LLM_WAIT_SECS="${CLAUDE_LOCAL_LLM_WAIT_SECS:-60}"
 # fedora fails, so the cost stays near zero. Haiku is the cheapest capable model.
 CLAUDE_BIN="${CLAUDE_BIN:-$HOME/.local/bin/claude}"
 FALLBACK_MODEL="${CLAUDE_FALLBACK_MODEL:-claude-haiku-4-5}"
+
+# Published USD per 1M tokens. Cache multipliers are applied below: a cache read costs
+# 0.1x the input rate, a cache write costs 1.25x at the 5m TTL and 2.0x at the 1h TTL.
+#
+# Verified 2026-08-28 against the OTel cost counter on 58 sessions. Sessions under $1
+# matched to six decimal places, which proves both the rates and the multipliers. Larger
+# sessions did NOT match, because the OTel counter loses export batches and under-reports
+# (mean ratio 0.657 at $1-5, 0.394 above $5). The transcript is therefore the source of
+# truth for cost, and this table is not a fallback for a metrics pipeline.
+#
+# A model missing here is left unpriced rather than priced at zero, so a new model shows
+# up as a NULL cost_source instead of silently deflating the total. Re-verify this table
+# against a small session's OTel cost after any price change.
+read -r -d '' PRICES <<'EOJ' || true
+{
+  "claude-opus-5":     {"in": 5.00,  "out": 25.00},
+  "claude-opus-4-8":   {"in": 5.00,  "out": 25.00},
+  "claude-opus-4-7":   {"in": 5.00,  "out": 25.00},
+  "claude-opus-4-6":   {"in": 5.00,  "out": 25.00},
+  "claude-fable-5":    {"in": 10.00, "out": 50.00},
+  "claude-mythos-5":   {"in": 10.00, "out": 50.00},
+  "claude-sonnet-5":   {"in": 2.00,  "out": 10.00},
+  "claude-sonnet-4-6": {"in": 3.00,  "out": 15.00},
+  "claude-haiku-4-5":  {"in": 1.00,  "out": 5.00}
+}
+EOJ
 
 # One prompt for both lanes, so the two summaries cannot drift apart.
 read -r -d '' SUMMARY_PROMPT <<'EOP' || true
@@ -76,6 +104,69 @@ EOP
 
   project=$(basename "${cwd:-unknown}")
   msg_count=$(wc -l <"$transcript_path" | tr -d ' ')
+
+  # Token and cost aggregate.
+  #
+  # unique_by(.message.id) is MANDATORY. Every content block of one assistant message
+  # (thinking, text, each tool_use) is written as its own JSONL record, and each record
+  # repeats the SAME usage object. A naive sum inflates every count by 2-3x. Measured
+  # 2026-08-28: 17 records for 6 real messages, so 18,394 output tokens read where the
+  # truth was 2,284. Dedupe on message.id, and fall back to requestId then uuid.
+  #
+  # message.model omits the [1m] long-context marker that the OTel model label carries.
+  # That costs nothing today, because the calibration above found the 1M context carries
+  # no price premium. Revisit if that changes.
+  #
+  # Sidechain (subagent) messages are counted deliberately. They are billed.
+  usage_json=$(jq -rs --argjson prices "$PRICES" '
+    [ .[] | select(.type=="assistant" and .message.usage != null) ]
+    | unique_by(.message.id // .requestId // .uuid)
+    | . as $m
+    | ($m | group_by(.message.model) | map({
+        model: .[0].message.model,
+        requests: length,
+        input:          (map(.message.usage.input_tokens // 0)                           | add // 0),
+        output:         (map(.message.usage.output_tokens // 0)                          | add // 0),
+        thinking:       (map(.message.usage.output_tokens_details.thinking_tokens // 0)  | add // 0),
+        cache_read:     (map(.message.usage.cache_read_input_tokens // 0)                | add // 0),
+        cache_write_5m: (map(.message.usage.cache_creation.ephemeral_5m_input_tokens//0) | add // 0),
+        cache_write_1h: (map(.message.usage.cache_creation.ephemeral_1h_input_tokens//0) | add // 0)
+      })
+      # Drop zero-token groups. Claude Code writes locally generated turns under the
+      # placeholder model "<synthetic>" with an all-zero usage object, and those are not
+      # a model anyone ran. Filtering on the token total rather than the name also
+      # catches any future placeholder.
+      | map(select((.input + .output + .cache_read + .cache_write_5m + .cache_write_1h) > 0))
+      ) as $by
+    | ($by | map(. + {
+        cost: ( (($prices[.model]) // null) as $p
+                | if $p == null then null
+                  else (( .input * $p.in
+                        + .output * $p.out
+                        + .cache_read * $p.in * 0.1
+                        + .cache_write_5m * $p.in * 1.25
+                        + .cache_write_1h * $p.in * 2.0 ) / 1000000)
+                  end )
+      })) as $priced
+    | ($priced | map(select(.cost != null) | .cost) | add) as $total
+    | {
+        input_tokens:          ($by | map(.input) | add // 0),
+        output_tokens:         ($by | map(.output) | add // 0),
+        cache_read_tokens:     ($by | map(.cache_read) | add // 0),
+        cache_creation_tokens: ($by | map(.cache_write_5m + .cache_write_1h) | add // 0),
+        models:                ($by | map(.model) | unique),
+        effort:                ($m | map(.effort // empty) | last),
+        usage_by_model:        $priced,
+        cost_usd:              (if $total == null then null else ($total * 1000000 | round / 1000000) end),
+        cost_source:           (if $total == null then null else "computed" end)
+      }
+  ' "$transcript_path" 2>>"$LOG" || echo "")
+
+  # Fail open. A usage aggregate that cannot be built must not cost us the summary row.
+  if [ -z "$usage_json" ] || ! jq -e . >/dev/null 2>&1 <<<"$usage_json"; then
+    echo "$(date -u +%FT%TZ) usage aggregate failed ($session_id), writing row without it"
+    usage_json='{}'
+  fi
 
   # Flatten user/assistant text turns into plain conversation text.
   convo=$(jq -rs '
@@ -147,7 +238,17 @@ EOP
   # PRIMARY KEY by default, and the key here is `id`, which this payload never sends. So
   # the ON CONFLICT target missed the session_id unique index and every re-write of an
   # existing row died with 23505. That blocked all backfill and nothing surfaced it.
-  resp=$(jq -n \
+  post_row() {
+    printf '%s' "$1" \
+    | curl -sS -w '\n%{http_code}' -X POST "$SUPABASE_URL/rest/v1/$TABLE?on_conflict=session_id" \
+        -H "apikey: $SUPABASE_SERVICE_KEY" \
+        -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+        -H "Content-Type: application/json" \
+        -H "Prefer: resolution=merge-duplicates,return=minimal" \
+        --data-binary @- 2>>"$LOG" || echo ""
+  }
+
+  base_payload=$(jq -n \
     --arg session_id "$session_id" \
     --arg project "$project" \
     --arg cwd "$cwd" \
@@ -155,13 +256,18 @@ EOP
     --arg summary "$summary" \
     --arg transcript_path "$transcript_path" \
     --argjson message_count "${msg_count:-0}" \
-    '{session_id:$session_id, project:$project, cwd:$cwd, reason:$reason, summary:$summary, transcript_path:$transcript_path, message_count:$message_count}' \
-  | curl -sS -w '\n%{http_code}' -X POST "$SUPABASE_URL/rest/v1/claude_sessions?on_conflict=session_id" \
-      -H "apikey: $SUPABASE_SERVICE_KEY" \
-      -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
-      -H "Content-Type: application/json" \
-      -H "Prefer: resolution=merge-duplicates,return=minimal" \
-      --data-binary @- 2>>"$LOG" || echo "")
+    '{session_id:$session_id, project:$project, cwd:$cwd, reason:$reason, summary:$summary, transcript_path:$transcript_path, message_count:$message_count}')
+
+  resp=$(post_row "$(jq -n --argjson b "$base_payload" --argjson u "$usage_json" '$b + $u')")
+
+  # The usage columns must not share fate with the summary. PostgREST rejects the WHOLE
+  # row with 400 PGRST204 when any key is not a column, so a schema that lags this hook
+  # would silently reproduce the 2026-08 "(summary unavailable)" outage. Retry once with
+  # the base payload: a mismatch then costs the token columns, not the session record.
+  if [ "$(printf '%s' "$resp" | tail -n1)" = "400" ] && [ "$usage_json" != "{}" ]; then
+    echo "$(date -u +%FT%TZ) usage columns rejected ($session_id), retrying without them: $(printf '%s' "$resp" | sed '$d' | head -c 200)"
+    resp=$(post_row "$base_payload")
+  fi
 
   # curl exits 0 on a 4xx, so read the status code. The old `&& echo wrote` logged a
   # success on every rejected write.

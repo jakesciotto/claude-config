@@ -109,7 +109,7 @@
     "todoist@doist": false,
     "supabase@claude-plugins-official": true,
     "vercel@claude-plugins-official": false,
-    "hogpilot@hogpilot": false
+    "hogpilot@hogpilot": true
   },
   "extraKnownMarketplaces": {
     "PostHog-skills": {

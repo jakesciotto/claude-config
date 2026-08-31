@@ -27,12 +27,14 @@ check_repo() {
     [ "${ahead:-0}" != "0" ] && warn "$name is $ahead commit(s) ahead of origin - push"
 }
 
-# Claude Code persists runtime state (the model picker, the effort picker) into
-# ~/.claude/settings.json, which IS global/settings.json in this repo. So every model
-# or effort switch dirties a tracked public repo. Move those keys down to the
-# machine-local overlay, which wins over settings.json, and restore the tracked file.
-# The effective config does not change; only the git status does.
-VOLATILE_KEYS='["model","modelSettings","effortLevel"]'
+# Claude Code persists runtime state (the model picker, the effort picker, the auto-mode
+# environment survey) into ~/.claude/settings.json, which IS global/settings.json in this
+# repo. So every model or effort switch dirties a tracked public repo. Move those keys
+# down to the machine-local overlay, which wins over settings.json, and restore the
+# tracked file. The effective config does not change; only the git status does.
+# `autoMode` matters most: its `environment` array is a generated survey naming internal
+# repos and sensitive-data locations, and this repo is PUBLIC.
+VOLATILE_KEYS='["model","modelSettings","effortLevel","autoMode"]'
 
 heal_settings_drift() {
     local repo="$HOME/github/claude-config" tracked="global/settings.json"

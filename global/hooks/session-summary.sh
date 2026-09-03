@@ -50,9 +50,21 @@ FALLBACK_MODEL="${CLAUDE_FALLBACK_MODEL:-claude-haiku-4-5}"
 # (mean ratio 0.657 at $1-5, 0.394 above $5). The transcript is therefore the source of
 # truth for cost, and this table is not a fallback for a metrics pipeline.
 #
-# A model missing here is left unpriced rather than priced at zero, so a new model shows
-# up as a NULL cost_source instead of silently deflating the total. Re-verify this table
-# against a small session's OTel cost after any price change.
+# A model missing here is left unpriced rather than priced at zero, so a new model never
+# silently deflates the total. Re-verify this table against a small session's OTel cost
+# after any price change.
+#
+# cost_source is the trust flag, and every row carries one. Read it before you sum cost_usd:
+#   computed      every model in the session was priced. cost_usd is complete.
+#   partial       some models were priced, some were not. cost_usd is an UNDERCOUNT.
+#   unpriced      real tokens, no model priced. cost_usd is NULL. Add the model here.
+#   no-api-calls  the session made no billed request. Tokens are 0 and cost_usd is 0.
+#   NULL          the usage aggregate failed. This must not happen; check the hook log.
+# One more value exists in the table but this hook never writes it:
+#   pre-instrumentation  325 rows that ended on or before 2026-08-27, before this hook
+#                        computed usage. Their transcripts are pruned, so the tokens are
+#                        unknowable and stay NULL. Stamped 2026-09-03.
+# Sum only "computed". Treat "partial" and "unpriced" as a price-table gap to fix.
 read -r -d '' PRICES <<'EOJ' || true
 {
   "claude-opus-5":     {"in": 5.00,  "out": 25.00},
@@ -148,6 +160,8 @@ EOP
                         + .cache_write_1h * $p.in * 2.0 ) / 1000000)
                   end )
       })) as $priced
+    | ($by | length) as $groups
+    | ($priced | map(select(.cost != null)) | length) as $priced_groups
     | ($priced | map(select(.cost != null) | .cost) | add) as $total
     | {
         input_tokens:          ($by | map(.input) | add // 0),
@@ -157,8 +171,13 @@ EOP
         models:                ($by | map(.model) | unique),
         effort:                ($m | map(.effort // empty) | last),
         usage_by_model:        $priced,
-        cost_usd:              (if $total == null then null else ($total * 1000000 | round / 1000000) end),
-        cost_source:           (if $total == null then null else "computed" end)
+        cost_usd:              (if $groups == 0 then 0
+                                elif $total == null then null
+                                else ($total * 1000000 | round / 1000000) end),
+        cost_source:           (if $groups == 0        then "no-api-calls"
+                                elif $priced_groups == 0        then "unpriced"
+                                elif $priced_groups < $groups    then "partial"
+                                else "computed" end)
       }
   ' "$transcript_path" 2>>"$LOG" || echo "")
 

@@ -82,10 +82,6 @@
           {
             "type": "command",
             "command": "bash ~/.claude/hooks/session-decisions.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/session-critic.sh"
           }
         ]
       }
@@ -93,11 +89,12 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "/usr/bin/python3 \"$HOME/.claude/scripts/statusline-usage.py\""
+    "command": "/usr/bin/python3 \"$HOME/.claude/scripts/statusline-usage.py\"",
+    "refreshInterval": 1
   },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": false,
-    "superpowers@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": false,
     "code-review@claude-plugins-official": false,
     "code-simplifier@claude-plugins-official": false,
     "feature-dev@claude-plugins-official": false,

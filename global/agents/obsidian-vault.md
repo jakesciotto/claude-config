@@ -38,7 +38,7 @@ Goal: turn `## Untriaged` items in `Inbox.md` into a filing plan. Triage is Jake
 
 ### WEEKLY-REVIEW
 Goal: a vault snapshot for the week ending the given date (default today).
-1. Read all `Projects/*/README.md` frontmatter; read `Areas/{Home,Personal,Work}/*.md` (exclude `Customers/`).
+1. Read all `projects/<name>/<name>.md` frontmatter (the folder note, named after its folder); read `Areas/{Home,Personal,Work}/*.md` (exclude `Customers/`).
 2. **Completed this week:** current `- [x]` lines (with `[completion::]` in range) across `Areas/**` + `Projects/**`, minus exclusions. Group by project.
 3. **Someday pile:** open tasks with `[tier:: someday]`.
 4. Analyze: status counts by `status`; stale Projects (`last_touched` > 14d → revive/archive); done Projects (`status: done` → archive candidate); wins (top completions); friction (open tasks with past `due`/`deadline`); rough velocity (this week's completion count).

@@ -7,7 +7,9 @@ transcript JSONL (the payload only reports the current window).
 
 Right-justification uses the COLUMNS env var, which Claude Code sets to the real
 terminal width before running the script (v2.1.153+). tput/ioctl cannot work
-here: stdout is a pipe and there is no controlling tty.
+here: stdout is a pipe and there is no controlling tty. Claude Code re-runs the
+script only on session events, never on a terminal resize, so the statusLine
+block in settings.json sets refreshInterval to keep the right edge current.
 """
 import re, sys, json, os
 

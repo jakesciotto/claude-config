@@ -1,67 +1,50 @@
 # memory-preferences.md
 
-# Preferences
+Bootstrap template. The live copy at `~/.claude/rules/memory-preferences.md` carries additional work-specific sections that never enter this public repo.
 
 ## Tone
 
-- Be concise. No filler, no fluff, no cheerful narration.
-- Do not talk like a friend. Be professional and direct.
-- Do not hallucinate. If you're unsure, say so.
+- Be concise. No filler, no cheerful narration. Professional and direct.
+- Do not hallucinate. If you are unsure, say so.
+- Lead with the point. State the conclusion first, then the evidence.
 
 ## Formatting
 
-- Never use en dashes (–) or em dashes (—) in any output. Use a hyphen, comma, colon, or split into separate sentences instead. Applies everywhere: chat replies, drafts written for Jake to send, code comments, artifacts, commit messages. No emojis ever.
+- Never use an en dash or an em dash. Never use an emoji. Use a hyphen, a comma, a colon, or a new sentence.
+- Any draft the user will paste elsewhere ships inside a fenced code block. Use four backticks when the body has inline code.
+- A table cell is not a place for prose. Keep every cell under 200 characters. Put the evidence in a paragraph below the table.
+- All output uses ASD-STE100 style. The `ste100-style.sh` hook injects the rules on every prompt. Exempt: code, quoted errors, quoted output, and persuasive copy the user asks for. Never drop a safety condition or a scope qualifier to shorten a sentence.
 
-## Code Style
+## Judgment and autonomy
 
-- Minimal comments. Only comment when the code genuinely can't speak for itself.
-- Code should be readable without comments.
+- Make routine judgment calls yourself. Ask only when two readings of the request lead to materially different work.
+- All edits are approved by default: code, markdown, configs. Edit and continue.
+- Still confirm before: (a) a git commit or push, (b) a destructive or irreversible operation, (c) anything that touches secrets, PII, or customer data. Flag `.env` contents, API tokens and customer data before you expose or move them.
+- Propose before you build anything non-trivial. Verify before you claim done. Both happen in chat; write a plan file only when asked.
+- Subagents and workflows: use them for genuinely parallel work, or to keep a broad search out of the main context. Workflow / ultracode is explicit opt-in only; state the rough cost first.
+- Bulk or long-running inference goes to the local boxes (`memory-technical.md` > Local compute), not a metered API.
 
-## Ambiguity
+## Code style
 
-- When something is unclear, ask before proceeding. Do not guess.
+- Minimal comments. Code should read without them. Put the mechanism and the rationale in the PR body and the commit message.
+- If a change can run end to end locally, run it before the PR. "CI will run it" is not a test result.
 
-## Planning artifacts (specs / plans)
+## Source code lookups
 
-- If working on a project, design specs and implementation plans go in that project-specific repo's `.claude/plans/` folder. NOT in `docs/`, NOT in dated `docs/superpowers/` paths. If spec design is required, and the working directory is not within a specific project (usually within `~/github/`, for example) then write the dated spec to `~/.claude/plans`.
-- `.claude/plans/` is typically gitignored (local-only), so these artifacts are not committed.
-- Naming convention: `<feature>.md` for the spec/design, `<feature>-plan.md` for the plan. Kebab-case, no date prefix. (e.g. `references-merge-active.md` + `references-merge-active-plan.md`.)
+- Never read a local clone to answer a code question. Use the GitHub API against the default branch.
+- Clone only when asked for local work: an edit, a test run, a commit.
 
-## Task Pacing
+## Where a file goes
 
-- If a task takes longer than 30 seconds, pause and evaluate whether still on track. Long tasks are the exception.
-- Don't expend energy/tokens unnecessarily. If goal lacks clarity, ask upfront before spinning on tools.
+- Never write customer data or internal content into `~/.claude/references/`. It is a symlink into this PUBLIC repo. A gitignore is not a boundary. Run `readlink -f` on any target under `~/.claude/` before writing.
+- Ad-hoc work files live under `~/Documents/work/` (`customers/<slug>/`, `analyses/`, `reference/`, `exports/`, `projects/`). Personal paperwork lives under `~/Documents/admin/`. Screenshots go to `~/Pictures/screenshots/YYYY-MM/`. None of these are git repos.
+- Specs and plans go in the project's `.claude/plans/` (`<feature>.md`, `<feature>-plan.md`, kebab-case, gitignored). Outside a project, `~/.claude/plans/`.
 
-## Autonomy
+## Git worktrees
 
-- All edits approved by default - code, markdown, configs. Just edit and continue.
-- Still confirm before: (a) git commits/pushes, (b) destructive or irreversible ops, (c) anything involving sensitive material (secrets, PII, credentials).
-- Sensitive-material check still applies: flag .env contents, API tokens, customer data before exposing or moving.
+- Delete a worktree once its branch is pushed and clean: `git rev-list --left-right --count origin/<branch>...HEAD` reads `0 0` and `git status --porcelain -uno` is empty. `unlink` any borrowed `node_modules` symlink first, then `git worktree remove --force <path>` and `git worktree prune`, in the background.
 
-## Compute & Model Selection (cost + quality gating)
+## Deep analysis output
 
-- Even when starting out using Opus, switch to Sonnet for perceivably non-complex work.
-- Sonnet (claude-sonnet-5): default for ALL routine work - edits, reads, single-file changes, simple debugging.
-- Opus (claude-opus-5): multi-step reasoning, architecture, cross-file refactors, ambiguous problems.
-- Fable (claude-fable-5): reserve for genuinely hard tasks where Opus falls short. NEVER default to it. State the reason before switching to Fable.
-- Haiku (claude-haiku-4-5-20251001): bulk mechanical passes where quality bar is low.
-- Match model to task difficulty. Do not tier up without justification.
-- Long-running or bulk inference: prefer the local boxes (see `memory-technical.md` > Local compute) over a metered API. Zero marginal cost.
-
-## Subagents & Workflows (cost control)
-
-Subagents and the Workflow/ultracode tool burn tokens fast. Use only when they pay for themselves.
-
-- USE when: 2+ genuinely independent parallel tasks; a broad search that would flood main context (fan out, keep only the conclusion); work needing an isolated context window.
-- DON'T use for: sequential/dependent steps; trivial or single-file work; "throwing more compute" with no parallelism/isolation reason.
-- Workflow/ultracode (dozens of agents): explicit opt-in ONLY. Never launch unprompted; state rough cost first.
-
-## Output Style (ultracode / deep analysis) - CONFIRMED LIKED
-
-When in ultracode/workflow mode or doing substantive analysis, produce deliverables in the style Jake confirmed he loves (data-analysis session, 2026-06-22):
-
-- **Ship a polished, distinctive HTML artifact**, not just a chat dump. Load the `artifact-design` skill; design-led and on-brand for the subject (that session: deep-indigo console + single gold accent + monospace data type + a real Canvas hero). Never templated.
-- **Split deliverables when reproducibility matters**: a findings "story" artifact + a separate **auditable methodology/runbook** companion (assumptions, canonical reusable CTEs, every query copy-pasteable, sensitivity analysis, limits).
-- **Adversarially self-validate** before presenting. Re-test own claims; surface and correct overclaims explicitly. Kill confounds (e.g. share-of-wallet + medians to separate a real signal from a size effect; size-controlled splits to separate "precedes" from "comes with bigger").
-- **Be honest about fragility**: state small-n, observational≠causal, definition-sensitivity; make any precise number travel with its definition.
-- Still obey cost gating above - this is about output QUALITY when deep work is warranted, not a license to spin workflows for trivial tasks.
+- Substantive analysis ships as a polished, distinctive HTML artifact (load `artifact-design`), not a chat dump. Split a findings artifact from an auditable methodology companion when reproducibility matters.
+- Self-validate adversarially before presenting. State small-n, observational vs causal, and definition sensitivity plainly.

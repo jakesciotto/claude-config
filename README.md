@@ -16,7 +16,7 @@ Three mechanisms, deliberately different:
 | Symlink each child | `skills/`, `hooks/` | These directories must stay real: marketplace plugins and hook state files (`.session-summary.env`, logs) live alongside the repo's entries. `ln -sfn` against a real directory silently nests inside it instead of replacing it, which is how `~/.claude/skills/skills` existed for months while `global/skills` never loaded. `link()` now refuses that case; `link_children()` handles it. |
 | Seed once, never clobber | `rules/` | Memory rules are live machine state that evolves in place. The repo holds bootstrap templates only. |
 
-Seed-if-missing means a template can rot while the live file moves on, and a fresh machine then gets the stale copy. `--diff` exists to surface that. `memory-profile.md` and `memory-preferences.md` carry real content and must not drift; the rest are blank skeletons and are expected to.
+Seed-if-missing means a template can rot while the live file moves on, and a fresh machine then gets the stale copy. `--diff` exists to surface that. `memory-profile.md` and `memory-preferences.md` carry real content. The preferences template is the public subset of the live file, which also holds work-specific sections that never enter this repo. The rest are blank skeletons and are expected to diverge.
 
 ## Global settings
 
@@ -26,16 +26,21 @@ Seed-if-missing means a template can rot while the live file moves on, and a fre
   - `memory-profile.md`, `memory-preferences.md` - carry content.
   - `memory-decisions.md` - pointer index to project decision logs. Full prose is archived in Supabase, never loaded.
   - `memory-sessions.md` - rolling summary of the last 3 substantive sessions.
-  - `memory-technical.md` - only cross-project gotchas that must hold in **every** repo. Domain gotchas live in skills instead (see below).
+  - `memory-technical.md` - a pointer index, one line per gotcha, with the mechanism in one of the skills below. Rewritten 2026-09-21 from a 42 KB narrative; the live file stays under 8 KB.
 - `skills/` - user skills, available in every project, body loads on demand:
-  - `claude-code-internals` - hook re-entry, transcript `entrypoint` gating, plugin install copy semantics. `paths:`-scoped to hook and settings files.
+  - `claude-code-internals` - hook re-entry, transcript `entrypoint` gating, plugin install copy semantics, MCP scope, the two Claude homes, runtime keys Claude Code writes into settings.json, classifier denials, zsh traps. `paths:`-scoped to hook and settings files.
+  - `git-github-recipes` - signed-commit rulesets, the `~/.config/git` layout, API paths that 404 or return a silent zero, canonical-repo checks, squash and release mechanics, the posthog venv.
+  - `obsidian-vault-ops` - what an agent may write into the vault, the three writers, TCC and iCloud, the obsidian-git pull-failed loop, add/add conflict recovery.
   - `data-pipeline-gotchas` - PostgREST/Supabase upserts, LLM-output validation and salvage, test isolation.
   - `capture` - Todoist Inbox to Obsidian, one-way. `disable-model-invocation: true` (side effects; you trigger it). Its Supabase audit-log spec and DDL are supporting files under `references/`, not separate commands.
 - `hooks/` - user-scope hooks, symlinked into `~/.claude/hooks/`:
-  - `session-summary.sh`, `session-decisions.sh` - SessionEnd, fork to background, write to Supabase `configs`. Both gate on the transcript `entrypoint` so a headless `claude -p` run is never ingested as a real session. Both self-trim their log at 256KB.
+  - `check-drift.sh` - SessionStart. One DRIFT line per problem, and it heals the runtime keys Claude Code writes into the tracked `settings.json`.
+  - `ste100-style.sh` - UserPromptSubmit. Injects the ASD-STE100 writing rules on every prompt.
+  - `session-summary.sh` - SessionEnd, forks to background, writes the summary, tokens and cost to Supabase `configs.claude_sessions`. Gates on the transcript `entrypoint` so a headless `claude -p` run is never ingested as a real session. Self-trims its log at 256KB.
+  - `session-decisions.sh`, `session-critic.sh` - kept in the repo, unwired from SessionEnd on 2026-09-21. Their tables (`decisions`, `session_findings`) stay queryable. Re-add the settings entry to turn one back on.
 - `scripts/` - `statusline-usage.py`.
 - `references/` - reference material, loaded on demand. Directory tracked, contents never.
-- `agents/` - `orchestrator` (model/effort router), `obsidian-vault` (read-only PARA operator).
+- `agents/` - `obsidian-vault` (read-only PARA operator). The `orchestrator` router was removed on 2026-09-21.
 
 `global/commands-archive/` holds deprecated commands, gitignored and outside the loaded tree. A file left inside `commands/` still registers as a namespaced command, so removal means moving it out, not renaming it.
 
@@ -79,9 +84,10 @@ A changelog and a capabilities file were dropped from the template: git log and 
 ├── global
 │   ├── CLAUDE.md
 │   ├── settings.json
-│   ├── agents/          orchestrator, obsidian-vault
-│   ├── hooks/           session-summary.sh, session-decisions.sh
-│   ├── skills/          capture, claude-code-internals, data-pipeline-gotchas
+│   ├── agents/          obsidian-vault
+│   ├── hooks/           check-drift.sh, ste100-style.sh, session-summary.sh (+ two unwired)
+│   ├── skills/          capture, claude-code-internals, data-pipeline-gotchas,
+│   │                    git-github-recipes, obsidian-vault-ops
 │   ├── commands/        empty; custom commands are merged into skills
 │   ├── scripts/         statusline-usage.py
 │   ├── references/      tracked dir, untracked contents

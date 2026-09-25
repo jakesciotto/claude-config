@@ -78,13 +78,15 @@ check_repo "$HOME/github/dotfiles"
 
 [ -L "$HOME/.claude/settings.json" ] || warn "~/.claude/settings.json is not a symlink - rerun bootstrap.sh"
 [ -L "$HOME/.zshrc" ] || warn "~/.zshrc is not a symlink - run dotfiles/install.sh"
+[ -L "$HOME/.zshenv" ] || warn "~/.zshenv is not a symlink - link dotfiles/.zshenv; it exports the OTLP endpoint since 2.1.282"
+grep -q 'OTEL_EXPORTER_OTLP_ENDPOINT' "$HOME/.zshenv" 2>/dev/null || warn "no OTLP endpoint in ~/.zshenv - metrics drop to localhost silently"
 
 f="$HOME/.claude/settings.local.json"
 if [ ! -f "$f" ]; then
-    warn "settings.local.json missing - telemetry drops to localhost silently; rerun bootstrap.sh"
+    warn "settings.local.json missing - Grafana series unlabeled; rerun bootstrap.sh"
 else
     grep -q 'host\.name=' "$f" || warn "no host.name in settings.local.json - Grafana series unlabeled"
-    grep -q 'OTEL_EXPORTER_OTLP_ENDPOINT' "$f" || warn "no OTLP endpoint in settings.local.json - metrics drop silently"
+    grep -q 'OTEL_EXPORTER_OTLP_ENDPOINT' "$f" && warn "OTLP endpoint still in settings.local.json - 2.1.282+ ignores it and prints a startup notice; remove the key"
 fi
 
 exit 0

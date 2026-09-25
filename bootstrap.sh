@@ -149,15 +149,15 @@ diff_rules() {
     return $rc
 }
 
-# Telemetry endpoint and host name are machine-local (settings.local.json). A
-# box missing them still exports - to localhost:4317, silently dropping every
-# metric, and series without host.name legend as bare "Value" in Grafana.
-# Seed a stub on fresh machines, validate existing ones.
+# host.name is machine-local (settings.local.json); series without it legend
+# as bare "Value" in Grafana. The OTLP endpoint is NOT here: since Claude Code
+# 2.1.282 project and local settings ignore it and print a startup notice, so
+# dotfiles/.zshenv exports it. Seed a stub on fresh machines, validate existing ones.
 seed_settings_local() {
     local f="$CLAUDE_DIR/settings.local.json"
     if [ -f "$f" ]; then
         grep -q '"OTEL_EXPORTER_OTLP_ENDPOINT"' "$f" \
-            || echo "ACTION REQUIRED: no OTLP endpoint in $f - metrics fall back to localhost:4317 and drop silently" >&2
+            && echo "ACTION REQUIRED: OTLP endpoint in $f - 2.1.282+ ignores it and prints a startup notice; remove the key, dotfiles/.zshenv owns it" >&2
         grep -q 'host\.name=' "$f" \
             || echo "ACTION REQUIRED: no host.name in $f - series legend as bare Value in Grafana" >&2
         echo "kept (live): $f"
@@ -167,7 +167,6 @@ seed_settings_local() {
     cat >"$f" <<EOF
 {
   "env": {
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://vinelab:4317",
     "OTEL_RESOURCE_ATTRIBUTES": "host.name=$box"
   }
 }

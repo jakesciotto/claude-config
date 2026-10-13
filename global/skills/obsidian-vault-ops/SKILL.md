@@ -15,7 +15,7 @@ Vault root on m5pro is `~/Documents/posthog/` (not "Obsidian Vault"). Remote: pr
 - Customer notes are flat at `areas/work/customers/<slug>.md` with `org_id` in frontmatter, only for accounts in the book. A `## Log` row is a plain `-` bullet, never `- [ ]`. A finished task is marked in place with `[completion:: YYYY-MM-DD]`, never deleted.
 - Folder notes are named after their folder (`projects/<name>/<name>.md`), not `README.md`. The archive path is basename-keyed, so a folder note archives to `archives/areas/work/work/<YYYY-MM>`; the doubled segment is the convention. A bare `[[projects]]` is ambiguous; keep folder-note links path-qualified.
 - Timestamp properties were deleted on 2026-08-20. Never propose a bump-on-edit mechanism; git answers "when did this change".
-- An external write to a note Obsidian has open gets clobbered by the next autosave. Write through the Obsidian MCP when the note may be open.
+- An external write to a note Obsidian has open gets clobbered by the next autosave. The `obsidian` MCP (`@bitbonsai/mcpvault`) does not prevent this: it calls `fs.writeFile` directly, with no Obsidian API (verified 2026-10-13). For a bulk move, use a script that re-reads each file and compares a hash just before an atomic `os.replace`. Re-read the note about 20 s later to confirm autosave did not revert it.
 - A duplicate-task sweep cannot run on text similarity. Real duplicates are cross-surface (`inbox.md` vs the account file) in different words. Group open tasks BY ACCOUNT and read each group; the account file is the source of truth. Exclude `archives/`, where every old daily-note snapshot repeats a still-open task.
 
 ## Three writers, three directory names
@@ -34,6 +34,8 @@ Attribute a commit by timezone offset only to separate fedora (`-0600`) and vine
 
 "Pull failed (rebase): You have unstaged changes" plus "[rejected] (non-fast-forward)" is ONE self-sustaining loop, not a credential or signing fault. The plugin runs `pull --rebase` BEFORE it commits, so a single dirty tracked file aborts the pull; `main` stays behind; the push is rejected; the next cycle repeats. Fix is one commit, not a git repair: commit or stash the dirty file, rebase onto `origin/main`, and the plugin's next push fast-forwards. Read `git status --porcelain` first and expect exactly one modified note. Before the rebase, compare `git diff --name-only main...origin/main` against `origin/main...main`: two machines often produce the SAME blob through two commits, so an alarming overlap rebases clean. Do NOT rewrite history once `git merge-base --is-ancestor <sha> origin/main` succeeds; the other machine already holds it.
 
+A second source of the same notice: `autoPullInterval: 10` runs a standalone pull, separate from the backup cycle. The pull fails whenever a note is mid-edit, even with `main` level with `origin/main`. Fix, applied on m5pro 2026-09-22: `git config --local rebase.autoStash true`. A new clone needs it again, because `.git/config` does not sync.
+
 ## The add/add conflict on a new file
 
 A NEW file the plugin commits twice from one racing timer (a default name like `Untitled.canvas` makes this likely) lands as an add/add conflict and strands the rebase in detached HEAD: `git status -sb` reads `## HEAD (no branch)` with one `AA` path.
@@ -51,3 +53,5 @@ Recovery:
 ## Scheduling
 
 launchd jobs that touch the vault die under TCC. The obsidian-git plugin is the working scheduler; a vault write from outside Obsidian goes through the MCP or a plain git commit from a headless clone.
+
+Exception, verified 2026-10-09 on m5pro: a launchd job whose program is a compiled, ad-hoc signed binary (hardened runtime) gets a per-folder "access files in your Documents folder" consent prompt on its first access. After Allow, the binary and the children it spawns read `~/Documents`, with no Full Disk Access. The grant lives in the user TCC.db as `kTCCServiceSystemPolicyDocumentsFolder`, auth_reason 2, keyed to the binary's code signature, so a rebuild prompts again. Recipe: `launcher.c` in `jakesciotto/obsidian-slack-sweep`.
